@@ -1,5 +1,7 @@
+// `||` (not `??`) so an empty TALENTED_API_BASE_URL also falls back instead of
+// resolving to a host-less "". Default matches the production app domain.
 const DEFAULT_BASE_URL =
-  process.env.TALENTED_API_BASE_URL ?? "https://app.talented.co";
+  process.env.TALENTED_API_BASE_URL || "https://talented.co";
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
