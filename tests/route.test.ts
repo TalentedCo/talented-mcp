@@ -21,7 +21,44 @@ beforeAll(async () => {
             name: "Claude",
             tokenPrefix: "tal_valid",
             scopes: ["agent:read", "agent:write"],
-            expiresAt: "2026-06-05T16:20:00.000Z"
+            oauthResource: "https://mcp.talented.co/mcp",
+            expiresAt: "2027-06-05T16:20:00.000Z"
+          }
+        });
+      }
+      if (auth === "Bearer tal_manual") {
+        return Response.json({
+          user: {
+            id: 12,
+            email: "owner@example.com",
+            firstName: "Owner",
+            lastName: "User"
+          },
+          token: {
+            id: 35,
+            name: "Manual API key",
+            tokenPrefix: "tal_manual",
+            scopes: ["agent:read", "agent:write"],
+            oauthResource: null,
+            expiresAt: null
+          }
+        });
+      }
+      if (auth === "Bearer tal_wrong_resource") {
+        return Response.json({
+          user: {
+            id: 12,
+            email: "owner@example.com",
+            firstName: "Owner",
+            lastName: "User"
+          },
+          token: {
+            id: 36,
+            name: "Wrong MCP",
+            tokenPrefix: "tal_wrong",
+            scopes: ["agent:read", "agent:write"],
+            oauthResource: "https://other.example/mcp",
+            expiresAt: null
           }
         });
       }
@@ -96,5 +133,19 @@ describe("MCP route auth", () => {
     const names = (body.result?.tools ?? []).map((tool) => tool.name);
     expect(names).toContain("list_companies");
     expect(names).toContain("get_job");
+  });
+
+  it("preserves manual tal_ API-key usage when no OAuth audience is attached", async () => {
+    const response = await POST(jsonRpc({ id: 3, method: "tools/list" }, "tal_manual"));
+
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects OAuth-issued tokens for a different MCP resource", async () => {
+    const response = await POST(
+      jsonRpc({ id: 4, method: "tools/list" }, "tal_wrong_resource")
+    );
+
+    expect(response.status).toBe(401);
   });
 });

@@ -4,7 +4,7 @@ export const dynamic = "force-static";
 export const revalidate = 3600;
 
 const RESOURCE = stripTrailingSlash(
-  process.env.TALENTED_MCP_RESOURCE || "https://mcp.talented.co"
+  process.env.TALENTED_MCP_RESOURCE || "https://mcp.talented.co/mcp"
 );
 const AUTHORIZATION_SERVER = stripTrailingSlash(
   process.env.TALENTED_OAUTH_AS_URL || "https://talented.co"
