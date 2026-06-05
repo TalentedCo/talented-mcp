@@ -63,6 +63,7 @@ describe("TalentedClient", () => {
         name: "Claude",
         tokenPrefix: "tal_prefix",
         scopes: ["agent:read"],
+        oauthResource: "https://mcp.talented.co/mcp",
         expiresAt: null
       }
     });
@@ -74,5 +75,6 @@ describe("TalentedClient", () => {
     expect(calls[0].method).toBe("GET");
     expect(calls[0].headers.get("authorization")).toBe("Bearer tal_test");
     expect(validation.token.scopes).toEqual(["agent:read"]);
+    expect(validation.token.oauthResource).toBe("https://mcp.talented.co/mcp");
   });
 });

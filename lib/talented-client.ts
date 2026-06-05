@@ -33,6 +33,7 @@ export type TalentedTokenValidation = {
     name: string;
     tokenPrefix: string;
     scopes: string[];
+    oauthResource?: string | null;
     expiresAt: string | null;
   };
 };
