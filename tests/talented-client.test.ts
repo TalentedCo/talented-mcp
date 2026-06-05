@@ -49,4 +49,30 @@ describe("TalentedClient", () => {
       message: "Forbidden"
     } satisfies Partial<TalentedApiError>);
   });
+
+  it("validates bearer tokens through the lightweight auth endpoint", async () => {
+    const { calls, fakeFetch } = captured(200, {
+      user: {
+        id: 1,
+        email: "owner@example.com",
+        firstName: "Owner",
+        lastName: "User"
+      },
+      token: {
+        id: 2,
+        name: "Claude",
+        tokenPrefix: "tal_prefix",
+        scopes: ["agent:read"],
+        expiresAt: null
+      }
+    });
+    const client = new TalentedClient({ baseUrl: "http://talented.test", fetch: fakeFetch });
+
+    const validation = await client.validateToken("tal_test");
+
+    expect(calls[0].url).toBe("http://talented.test/api/agent/v1/auth/validate");
+    expect(calls[0].method).toBe("GET");
+    expect(calls[0].headers.get("authorization")).toBe("Bearer tal_test");
+    expect(validation.token.scopes).toEqual(["agent:read"]);
+  });
 });
