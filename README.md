@@ -2,18 +2,21 @@
 
 Connect [Talented](https://talented.co) to Claude and any other MCP-aware AI tool. The Talented MCP server exposes your employer-side hiring workflow — companies, jobs, applications, candidates, and notes — as safe, scoped tools an assistant can call on your behalf.
 
-It speaks the [Model Context Protocol](https://modelcontextprotocol.io) over HTTP, so most clients connect with just a URL and your API key.
+It speaks the [Model Context Protocol](https://modelcontextprotocol.io) over HTTP. OAuth-aware clients connect with just the hosted URL and complete a Talented sign-in/consent flow. Headless clients can still send a `tal_…` API key as a bearer token.
 
 - **Hosted server:** `https://mcp.talented.co/mcp`
-- **Auth:** a personal `tal_…` API key, sent as a bearer token
+- **OAuth discovery:** `https://mcp.talented.co/.well-known/oauth-protected-resource`
+- **Auth server:** `https://talented.co/.well-known/oauth-authorization-server`
+- **Headless auth:** a personal `tal_…` API key, sent as a bearer token
 - **Same contract as the** [`talented-cli`](https://github.com/TalentedCo/talented-cli) — no super‑admin, billing, impersonation, raw‑database, or bulk‑destructive surfaces.
 
 ---
 
 ## Quick start
 
-1. **Get an API key** at **[talented.co → Account Settings → API Keys](https://talented.co/pro/account)**. Copy it when it's shown (it's only shown once).
-2. **Add the server to your client** (pick yours below). Everything reduces to:
+1. **Add the server to your OAuth-aware client** (pick yours below). URL-only setup reduces to:
+   - URL: `https://mcp.talented.co/mcp`
+2. **For headless clients, get an API key** at **[talented.co → Account Settings → API Keys](https://talented.co/pro/account)**. Copy it when it's shown (it's only shown once). Bearer setup reduces to:
    - URL: `https://mcp.talented.co/mcp`
    - Header: `Authorization: Bearer tal_your_key_here`
 3. **Ask your assistant** something like *"List my Talented companies"* or *"Show open applications for job 1042."*
@@ -22,7 +25,9 @@ It speaks the [Model Context Protocol](https://modelcontextprotocol.io) over HTT
 
 ## 1. Get an API key
 
-API keys live in your Talented account:
+OAuth-aware clients do not need a manually-created key. They discover `https://talented.co` as the authorization server, open Talented sign-in/consent, and receive a short-lived scoped bearer token.
+
+API keys remain available for headless or non-OAuth clients:
 
 1. Sign in at [talented.co](https://talented.co).
 2. Open the user menu → **Account Settings** → **API Keys** (or go straight to **[/pro/account](https://talented.co/pro/account)**).
@@ -42,11 +47,18 @@ Each key acts as **you**: every request is restricted to the companies you're a 
 |---|---|
 | **Transport** | Streamable HTTP |
 | **URL** | `https://mcp.talented.co/mcp` |
-| **Auth header** | `Authorization: Bearer tal_your_key_here` |
+| **OAuth setup** | No header; client discovers Talented auth |
+| **Bearer setup** | `Authorization: Bearer tal_your_key_here` |
 
-Most modern clients support remote HTTP servers directly with the **URL + header** form below. Clients that only support local (stdio) servers can bridge to the hosted server with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) — see [Claude Desktop](#claude-desktop) and [Any other client](#any-other-client).
+Most modern clients support remote HTTP servers directly. Use the URL-only form when your client supports remote MCP OAuth. Use the URL + header form for headless clients, non-OAuth clients, or automated environments. Clients that only support local (stdio) servers can bridge to the hosted server with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) — see [Claude Desktop](#claude-desktop) and [Any other client](#any-other-client).
 
 ### Claude Code
+
+```bash
+claude mcp add --transport http talented https://mcp.talented.co/mcp
+```
+
+For headless bearer setup:
 
 ```bash
 claude mcp add --transport http talented https://mcp.talented.co/mcp \
@@ -61,6 +73,22 @@ Claude Desktop runs local (stdio) servers, so bridge to the hosted server with `
 
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "talented": {
+      "command": "npx",
+      "args": [
+        "-y", "mcp-remote",
+        "https://mcp.talented.co/mcp"
+      ]
+    }
+  }
+}
+```
+
+For headless bearer setup:
 
 ```json
 {
@@ -87,12 +115,13 @@ Create `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (per‑project):
 {
   "mcpServers": {
     "talented": {
-      "url": "https://mcp.talented.co/mcp",
-      "headers": { "Authorization": "Bearer tal_your_key_here" }
+      "url": "https://mcp.talented.co/mcp"
     }
   }
 }
 ```
+
+Add `"headers": { "Authorization": "Bearer tal_your_key_here" }` only for manual bearer setup.
 
 Enable the server in **Cursor → Settings → MCP**.
 
@@ -105,12 +134,13 @@ Create `.vscode/mcp.json` in your workspace (or add to user `settings.json` unde
   "servers": {
     "talented": {
       "type": "http",
-      "url": "https://mcp.talented.co/mcp",
-      "headers": { "Authorization": "Bearer tal_your_key_here" }
+      "url": "https://mcp.talented.co/mcp"
     }
   }
 }
 ```
+
+Add `"headers": { "Authorization": "Bearer tal_your_key_here" }` only for manual bearer setup.
 
 Open the Copilot Chat **agent** picker and enable **talented**.
 
@@ -122,12 +152,13 @@ Edit `~/.codeium/windsurf/mcp_config.json`:
 {
   "mcpServers": {
     "talented": {
-      "serverUrl": "https://mcp.talented.co/mcp",
-      "headers": { "Authorization": "Bearer tal_your_key_here" }
+      "serverUrl": "https://mcp.talented.co/mcp"
     }
   }
 }
 ```
+
+Add `"headers": { "Authorization": "Bearer tal_your_key_here" }` only for manual bearer setup.
 
 Then **Refresh** the MCP servers in Windsurf's Cascade settings.
 
@@ -139,16 +170,35 @@ In Cline, open **MCP Servers → Remote Servers** (or edit `cline_mcp_settings.j
 {
   "mcpServers": {
     "talented": {
-      "url": "https://mcp.talented.co/mcp",
-      "headers": { "Authorization": "Bearer tal_your_key_here" }
+      "url": "https://mcp.talented.co/mcp"
     }
   }
 }
 ```
 
+Add `"headers": { "Authorization": "Bearer tal_your_key_here" }` only for manual bearer setup.
+
 ### Zed
 
 Zed runs MCP ("context") servers as commands, so bridge with `mcp-remote` in `settings.json`:
+
+```json
+{
+  "context_servers": {
+    "talented": {
+      "command": {
+        "path": "npx",
+        "args": [
+          "-y", "mcp-remote",
+          "https://mcp.talented.co/mcp"
+        ]
+      }
+    }
+  }
+}
+```
+
+For headless bearer setup:
 
 ```json
 {
@@ -169,7 +219,8 @@ Zed runs MCP ("context") servers as commands, so bridge with `mcp-remote` in `se
 
 ### Any other client
 
-- **If it supports remote / Streamable HTTP servers:** point it at `https://mcp.talented.co/mcp` and add the header `Authorization: Bearer tal_your_key_here`. The exact config key varies (`url`, `serverUrl`, `endpoint`…) — check your client's MCP docs.
+- **If it supports remote / Streamable HTTP OAuth:** point it at `https://mcp.talented.co/mcp` with no header. The client should discover Talented OAuth and open a Talented sign-in/consent flow.
+- **If it supports remote / Streamable HTTP with manual headers:** point it at `https://mcp.talented.co/mcp` and add the header `Authorization: Bearer tal_your_key_here`. The exact config key varies (`url`, `serverUrl`, `endpoint`…) — check your client's MCP docs.
 - **If it only supports local (stdio) servers:** bridge with `mcp-remote`:
 
   ```json
@@ -183,7 +234,7 @@ Zed runs MCP ("context") servers as commands, so bridge with `mcp-remote` in `se
   }
   ```
 
-- **Building your own integration?** Use any MCP SDK's **Streamable HTTP** client transport against `https://mcp.talented.co/mcp`, setting the `Authorization` header.
+- **Building your own integration?** Use any MCP SDK's **Streamable HTTP** client transport against `https://mcp.talented.co/mcp`. OAuth-aware clients should follow discovery; headless clients should set the `Authorization` header.
 
 ---
 
@@ -238,7 +289,7 @@ Browseable, read‑only views for clients that support MCP resources:
 - **Scoped to you.** Every request resolves your key to your user and enforces current company membership for the target company, job, application, or candidate.
 - **Role‑aware.** Material job writes (`create_or_update_job`, `set_job_status`) require company **OWNER** or **ADMIN**; pipeline actions mirror the normal ATS dashboard and act one item at a time.
 - **Intentionally limited.** No super‑admin, impersonation, billing/Stripe, feature flags, raw database/SQL, migrations, eval/debug, or bulk‑destructive operations are exposed.
-- **Key hygiene.** Keys are stored only as a hash, shown once at creation, can be given an expiry, and can be revoked anytime at [talented.co/pro/account](https://talented.co/pro/account). Up to 20 active keys per user.
+- **Key hygiene.** Manual keys and OAuth-issued tokens are stored only as hashes. Manual keys are shown once at creation, can be given an expiry, and can be revoked anytime at [talented.co/pro/account](https://talented.co/pro/account). OAuth-issued tokens are short-lived.
 
 ---
 

@@ -21,6 +21,22 @@ export type TalentedClientOptions = {
   fetch?: typeof globalThis.fetch;
 };
 
+export type TalentedTokenValidation = {
+  user: {
+    id: number;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  token: {
+    id: number;
+    name: string;
+    tokenPrefix: string;
+    scopes: string[];
+    expiresAt: string | null;
+  };
+};
+
 export class TalentedClient {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof globalThis.fetch;
@@ -57,6 +73,14 @@ export class TalentedClient {
     }
 
     return parsed as T;
+  }
+
+  async validateToken(token: string): Promise<TalentedTokenValidation> {
+    return this.request<TalentedTokenValidation>(
+      token,
+      "GET",
+      "/api/agent/v1/auth/validate"
+    );
   }
 }
 
