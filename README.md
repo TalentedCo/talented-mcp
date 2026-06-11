@@ -245,8 +245,11 @@ Once connected, ask your assistant things like:
 - "List my Talented companies."
 - "What jobs are active at company 12?"
 - "Show the latest 10 applications for job 1042."
+- "How many interviews were completed last week for company 12?"
+- "Show pipeline counts by column for job 1042."
 - "Add a candidate named Ada Lovelace (ada@example.com) to job 1042."
 - "Move application 88 to the phone‑screen stage."
+- "Move candidate application 88 to stage/column 45."
 - "Add a note to candidate 240: strong portfolio, follow up next week."
 
 ---
@@ -267,11 +270,23 @@ All tools operate within your company memberships. Read tools need the `agent:re
 | `get_application` | Get an application with candidate and current stage | read |
 | `create_application` | Add one candidate/application to a job | write |
 | `move_application_stage` | Move one application to a valid stage in the same job | write |
+| `move_candidate_to_stage` | Friendly alias for moving one candidate application to a valid stage/column in the same job | write |
+| `get_interview_report` | Count completed interviews by company/job/stage/date; completed means effective duration is at least 120 seconds | read |
+| `get_pipeline_report` | Current pipeline counts and date-window movement by Talented stage/column | read |
+| `get_stage_conversion_report` | Entered/completed/skipped/passed/failed counts by stage/column over a date range | read |
+| `get_candidate_activity_report` | Applications, stage entries, interviews, completed interviews, and note counts over a date range | read |
 | `reject_application` | Reject one application | write |
 | `unreject_application` | Un‑reject one application | write |
 | `get_candidate` | Get one candidate | read |
 | `add_candidate_note` | Add a dashboard‑visible candidate note | write |
 | `update_candidate_status` | Update a candidate's status and/or favorite flag | write |
+
+### Reporting semantics
+
+- Completed interviews are duration-based: Talented counts an interview as completed when effective duration is at least 120 seconds. The Agent API uses `Interview.totalDurationSeconds` when present and otherwise sums `InterviewSession.durationSeconds`.
+- Date filters use `from` inclusive and `to` exclusive. ISO datetimes keep their offset; date-only values are interpreted in the company's Talented timezone.
+- "Columns" in natural-language prompts map to Talented job stages. Report responses include stage IDs, names, order, type, and job labels so clients can filter or group without guessing.
+- Reporting tools return aggregates only. They do not expose transcripts, recordings, note content, billing/admin data, raw database access, or free-form SQL.
 
 ## Resources
 
