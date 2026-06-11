@@ -22,7 +22,7 @@ beforeAll(async () => {
             tokenPrefix: "tal_valid",
             scopes: ["agent:read", "agent:write"],
             oauthResource: "https://mcp.talented.co/mcp",
-            expiresAt: "2027-06-05T16:20:00.000Z"
+            expiresAt: "2026-09-03T16:20:00.000Z"
           }
         });
       }
