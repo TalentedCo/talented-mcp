@@ -25,7 +25,7 @@ It speaks the [Model Context Protocol](https://modelcontextprotocol.io) over HTT
 
 ## 1. Get an API key
 
-OAuth-aware clients do not need a manually-created key. They discover `https://talented.co` as the authorization server, open Talented sign-in/consent, and receive a short-lived scoped bearer token.
+OAuth-aware clients do not need a manually-created key. They discover `https://talented.co` as the authorization server, open Talented sign-in/consent, and receive a 90-day scoped, revocable bearer token.
 
 API keys remain available for headless or non-OAuth clients:
 
@@ -289,7 +289,7 @@ Browseable, read‑only views for clients that support MCP resources:
 - **Scoped to you.** Every request resolves your key to your user and enforces current company membership for the target company, job, application, or candidate.
 - **Role‑aware.** Material job writes (`create_or_update_job`, `set_job_status`) require company **OWNER** or **ADMIN**; pipeline actions mirror the normal ATS dashboard and act one item at a time.
 - **Intentionally limited.** No super‑admin, impersonation, billing/Stripe, feature flags, raw database/SQL, migrations, eval/debug, or bulk‑destructive operations are exposed.
-- **Key hygiene.** Manual keys and OAuth-issued tokens are stored only as hashes. Manual keys are shown once at creation, can be given an expiry, and can be revoked anytime at [talented.co/pro/account](https://talented.co/pro/account). OAuth-issued tokens are short-lived.
+- **Key hygiene.** Manual keys and OAuth-issued tokens are stored only as hashes. Manual keys are shown once at creation, can be given an expiry, and can be revoked anytime at [talented.co/pro/account](https://talented.co/pro/account). OAuth-issued tokens last 90 days and can be revoked from the same page.
 
 ---
 
