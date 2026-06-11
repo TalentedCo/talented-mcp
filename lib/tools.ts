@@ -11,6 +11,29 @@ type ToolHandler<T> = (
 ) => Promise<ToolResult>;
 
 const id = z.number().int().positive();
+const isoDateOrDateTime = z
+  .string()
+  .min(1)
+  .describe("ISO date or datetime. Date-only values are interpreted by the Talented Agent API as UTC boundaries.");
+
+function reportQuery(
+  input: {
+    from?: string;
+    to?: string;
+    stageId?: number;
+    interviewTypeId?: number;
+    includeRejected?: boolean;
+  },
+  keys: Array<"from" | "to" | "stageId" | "interviewTypeId" | "includeRejected">
+) {
+  const params = new URLSearchParams();
+  for (const key of keys) {
+    const value = input[key];
+    if (value !== undefined) params.set(key, String(value));
+  }
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
 
 async function call<T>(
   auth: AuthInfo | undefined,
@@ -104,6 +127,41 @@ export async function listApplicationsHandler(input: z.infer<z.ZodObject<typeof 
   return call(auth, client, "GET", `/api/agent/v1/jobs/${input.jobId}/applications${qs ? `?${qs}` : ""}`);
 }
 
+export const getInterviewReportSchema = {
+  jobId: id.describe("Job ID to report on. Access is limited to jobs visible to the token user."),
+  from: isoDateOrDateTime.optional().describe("Inclusive lower bound for the interview end date."),
+  to: isoDateOrDateTime.optional().describe("Exclusive upper bound for the interview end date."),
+  stageId: id.optional().describe("Optional Talented stage/column ID to filter by."),
+  interviewTypeId: id.optional().describe("Optional interview type ID to filter by.")
+};
+export async function getInterviewReportHandler(input: z.infer<z.ZodObject<typeof getInterviewReportSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  const qs = reportQuery(input, ["from", "to", "stageId", "interviewTypeId"]);
+  return call(auth, client, "GET", `/api/agent/v1/jobs/${input.jobId}/reports/interviews${qs}`);
+}
+
+export const getPipelineReportSchema = {
+  jobId: id.describe("Job ID to report on. Access is limited to jobs visible to the token user."),
+  from: isoDateOrDateTime.optional().describe("Inclusive lower bound for stage-entry conversion metrics."),
+  to: isoDateOrDateTime.optional().describe("Exclusive upper bound for stage-entry conversion metrics."),
+  stageId: id.optional().describe("Optional Talented stage/column ID to filter by."),
+  includeRejected: z.boolean().optional().describe("Include rejected applications in pipeline counts.")
+};
+export async function getPipelineReportHandler(input: z.infer<z.ZodObject<typeof getPipelineReportSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  const qs = reportQuery(input, ["from", "to", "stageId", "includeRejected"]);
+  return call(auth, client, "GET", `/api/agent/v1/jobs/${input.jobId}/reports/pipeline${qs}`);
+}
+
+export const getCandidateActivityReportSchema = {
+  jobId: id.describe("Job ID to report on. Access is limited to jobs visible to the token user."),
+  from: isoDateOrDateTime.optional().describe("Inclusive lower bound for activity timestamps."),
+  to: isoDateOrDateTime.optional().describe("Exclusive upper bound for activity timestamps."),
+  stageId: id.optional().describe("Optional Talented stage/column ID to filter by.")
+};
+export async function getCandidateActivityReportHandler(input: z.infer<z.ZodObject<typeof getCandidateActivityReportSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  const qs = reportQuery(input, ["from", "to", "stageId"]);
+  return call(auth, client, "GET", `/api/agent/v1/jobs/${input.jobId}/reports/activity${qs}`);
+}
+
 export const getApplicationSchema = { applicationId: id };
 export async function getApplicationHandler(input: { applicationId: number }, auth: AuthInfo | undefined, client: TalentedClient) {
   return call(auth, client, "GET", `/api/agent/v1/applications/${input.applicationId}`);
@@ -134,6 +192,14 @@ export async function createApplicationHandler(input: z.infer<z.ZodObject<typeof
 export const moveApplicationStageSchema = { applicationId: id, stageId: id };
 export async function moveApplicationStageHandler(input: z.infer<z.ZodObject<typeof moveApplicationStageSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
   return call(auth, client, "POST", `/api/agent/v1/applications/${input.applicationId}/stage`, { stageId: input.stageId });
+}
+
+export const moveCandidateToStageSchema = {
+  applicationId: id.describe("Application ID for the candidate/job pair to move. Required because one candidate can have multiple applications."),
+  stageId: id.describe("Destination Talented stage/column ID in the same job.")
+};
+export async function moveCandidateToStageHandler(input: z.infer<z.ZodObject<typeof moveCandidateToStageSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  return moveApplicationStageHandler(input, auth, client);
 }
 
 export const rejectApplicationSchema = { applicationId: id, reason: z.string().optional() };
@@ -182,9 +248,13 @@ const registrations: Registration[] = [
   { name: "create_or_update_job", title: "Create Or Update Job", description: "Create a draft job or update safe job fields. Requires company owner/admin; no billing or admin routes.", schema: createOrUpdateJobSchema, handler: createOrUpdateJobHandler },
   { name: "set_job_status", title: "Set Job Status", description: "Set one job status through the restricted non-admin status contract. Requires company owner/admin.", schema: setJobStatusSchema, handler: setJobStatusHandler },
   { name: "list_applications", title: "List Applications", description: "List candidate applications for one accessible job.", schema: listApplicationsSchema, handler: listApplicationsHandler },
+  { name: "get_interview_report", title: "Get Interview Report", description: "Report interview completion for one accessible job. Completed interviews are duration-based: effective call duration >= 120 seconds, using Interview.totalDurationSeconds before summed session durations.", schema: getInterviewReportSchema, handler: getInterviewReportHandler },
+  { name: "get_pipeline_report", title: "Get Pipeline Report", description: "Report current pipeline counts and stage conversion metrics for one accessible job. Talented columns are stages; responses include stageId, columnId, names, order, and stageType.", schema: getPipelineReportSchema, handler: getPipelineReportHandler },
+  { name: "get_candidate_activity_report", title: "Get Candidate Activity Report", description: "Report date-range candidate activity for one accessible job: applications created, stage entries/exits, interviews created, completed interviews, and note counts without note content.", schema: getCandidateActivityReportSchema, handler: getCandidateActivityReportHandler },
   { name: "get_application", title: "Get Application", description: "Get one accessible application with candidate and current stage.", schema: getApplicationSchema, handler: getApplicationHandler },
   { name: "create_application", title: "Create Application", description: "Create one candidate/application in a job. No bulk creation.", schema: createApplicationSchema, handler: createApplicationHandler },
   { name: "move_application_stage", title: "Move Application Stage", description: "Move one application to a valid stage in the same job. No bulk movement.", schema: moveApplicationStageSchema, handler: moveApplicationStageHandler },
+  { name: "move_candidate_to_stage", title: "Move Candidate To Stage", description: "Friendly alias for moving one candidate application to one valid Talented stage/column. Requires applicationId and does not support bulk movement.", schema: moveCandidateToStageSchema, handler: moveCandidateToStageHandler },
   { name: "reject_application", title: "Reject Application", description: "Reject one application through the ATS service.", schema: rejectApplicationSchema, handler: rejectApplicationHandler },
   { name: "unreject_application", title: "Unreject Application", description: "Unreject one application.", schema: unrejectApplicationSchema, handler: unrejectApplicationHandler },
   { name: "get_candidate", title: "Get Candidate", description: "Get one accessible candidate.", schema: getCandidateSchema, handler: getCandidateHandler },
