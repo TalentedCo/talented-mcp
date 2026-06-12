@@ -76,7 +76,7 @@ export function registerResources(server: McpServer, client: TalentedClient): vo
     new ResourceTemplate("talented://jobs/{jobId}/applications", { list: undefined }),
     {
       title: "Job Applications",
-      description: "Applications for one accessible job.",
+      description: "Applications for one accessible job, including resumeMatchScorePercent, interviewScore, and bounded aiScreeningSummary when present.",
       mimeType: "application/json"
     },
     async (_uri, variables, extra) => {
@@ -95,7 +95,7 @@ export function registerResources(server: McpServer, client: TalentedClient): vo
     new ResourceTemplate("talented://applications/{applicationId}", { list: undefined }),
     {
       title: "Application",
-      description: "One accessible application.",
+      description: "One accessible application with candidate, current stage, resumeMatchScorePercent, interviewScore, and bounded aiScreeningSummary.",
       mimeType: "application/json"
     },
     async (_uri, variables, extra) => {

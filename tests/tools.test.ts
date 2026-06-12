@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { toolNames } from "@/lib/tools";
+import { z } from "zod";
+import { listApplicationsSchema, toolDefinitions, toolNames } from "@/lib/tools";
 
 describe("registered tool list", () => {
   it("includes the safe Talented v1 MCP tools", () => {
@@ -24,5 +25,35 @@ describe("registered tool list", () => {
       "add_candidate_note",
       "update_candidate_status"
     ]);
+  });
+
+  it("documents application match and interview score fields", () => {
+    const listApplications = toolDefinitions.find(
+      (tool) => tool.name === "list_applications"
+    );
+    const getApplication = toolDefinitions.find(
+      (tool) => tool.name === "get_application"
+    );
+
+    expect(listApplications?.description).toContain("resumeMatchScorePercent");
+    expect(listApplications?.description).toContain("interviewScore");
+    expect(listApplications?.description).toContain("minMatchScore/maxMatchScore");
+    expect(getApplication?.description).toContain("bounded aiScreeningSummary");
+  });
+
+  it("accepts match-score filter inputs for list_applications", () => {
+    const parsed = z.object(listApplicationsSchema).parse({
+      jobId: 20,
+      stageId: 100,
+      minMatchScore: 40,
+      maxMatchScore: 85,
+    });
+
+    expect(parsed).toMatchObject({
+      jobId: 20,
+      stageId: 100,
+      minMatchScore: 40,
+      maxMatchScore: 85,
+    });
   });
 });
