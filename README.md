@@ -21,6 +21,8 @@ It speaks the [Model Context Protocol](https://modelcontextprotocol.io) over HTT
    - Header: `Authorization: Bearer tal_your_key_here`
 3. **Ask your assistant** something like *"List my Talented companies"* or *"Show open applications for job 1042."*
 
+> **Always include the `/mcp` path.** The URL is `https://mcp.talented.co/mcp`, not `https://mcp.talented.co`. The OAuth resource identifier is the full path, so clients that point at the bare origin will fail discovery (in Claude Desktop the connect attempt errors out). When in doubt, paste the URL exactly as shown above.
+
 ---
 
 ## 1. Get an API key
@@ -69,7 +71,9 @@ Then run `/mcp` inside Claude Code to confirm it's connected. Add `-s user` to m
 
 ### Claude Desktop
 
-Claude Desktop runs local (stdio) servers, so bridge to the hosted server with `mcp-remote`. Edit your config file:
+**Native connector (recommended):** In Claude Desktop go to **Settings → Connectors → Add custom connector** and paste the full URL `https://mcp.talented.co/mcp`. Claude discovers Talented OAuth and opens a Talented sign-in/consent flow — no `mcp-remote` and no manual key needed. Be sure to include the `/mcp` path; pasting just `https://mcp.talented.co` makes OAuth discovery fail and the connect attempt errors out.
+
+**`mcp-remote` bridge (alternative):** For older Claude Desktop builds without native remote connectors, bridge to the hosted server with `mcp-remote`. Edit your config file:
 
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
