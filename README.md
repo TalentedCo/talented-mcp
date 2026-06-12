@@ -264,8 +264,8 @@ All tools operate within your company memberships. Read tools need the `agent:re
 |---|---|---|
 | `list_companies` | List companies you can access | read |
 | `get_company` | Get one company | read |
-| `list_jobs` | List a company's jobs (status/search filters) | read |
-| `get_job` | Get a job with active stages and interview types | read |
+| `list_jobs` | List compact job metadata for a company (status/search filters, bounded `descriptionPreview`, counts only) | read |
+| `get_job` | Get the canonical job detail/context payload with bounded description text, scoring note, progression, stage meanings, automation flags, and hiring-plan competencies | read |
 | `create_or_update_job` | Create a draft job or update safe fields | write · **OWNER/ADMIN** |
 | `set_job_status` | Change a job's status (draft → active, etc.) | write · **OWNER/ADMIN** |
 | `list_applications` | List applications for a job, including separate résumé match and interview score fields plus optional `stageId` / `minMatchScore` / `maxMatchScore` filters | read |
@@ -284,9 +284,11 @@ All tools operate within your company memberships. Read tools need the `agent:re
 
 ### Reporting notes
 
+- `list_jobs` is token-optimized by default. It does not return full HTML job descriptions, interview descriptions, questions, or hiring-plan competencies.
+- Call `get_job` before ranking candidates or explaining fit; it includes the detailed job/hiring-plan context that `list_jobs` intentionally omits.
 - Application list/detail responses expose résumé/application fit as `resumeMatchScorePercent` and `applicationMatchScorePercent` from `Application.aiScreeningResult.matchScore` when present.
 - Interview-derived scoring is exposed separately as `interviewScore` and `interviewScorePercent` from scored interview competency assessments. This is not the same number as the résumé match score.
-- Application responses include bounded `aiScreeningContext` highlights such as reasoning, strengths, concerns, career highlights, skill highlights, requirements matrix, and red flags. Full résumé text is not returned in list/detail responses by default.
+- Application responses include bounded `aiScreeningContext` highlights such as reasoning, strengths, concerns, career highlights, skill highlights, requirements matrix, and red flags plus a small `jobContextHint` that points back to `get_job`. Full résumé text is not returned in list/detail responses by default.
 - Use `stageId` for Talented columns and `minMatchScore` / `maxMatchScore` to filter application/resume match percentages before inspecting candidate context.
 
 - Completed interviews are duration-based: Talented counts an interview as completed when the effective call duration is `>= 120` seconds. The Agent API uses `Interview.totalDurationSeconds` when present, then falls back to summed `InterviewSession.durationSeconds` values.
