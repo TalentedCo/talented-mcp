@@ -23,8 +23,24 @@ describe("registered tool list", () => {
       "unreject_application",
       "get_candidate",
       "add_candidate_note",
+      "send_candidate_sms",
       "update_candidate_status"
     ]);
+  });
+
+  it("scopes SMS sends to a candidate's phone on file", () => {
+    const registered: Array<{ name: string; config: { description?: string } }> = [];
+    const server = {
+      registerTool: (name: string, config: { description?: string }) => {
+        registered.push({ name, config });
+      }
+    };
+
+    registerTools(server as never, {} as TalentedClient);
+
+    const sendSms = registered.find((tool) => tool.name === "send_candidate_sms");
+    expect(sendSms?.config.description).toContain("phone number on file");
+    expect(sendSms?.config.description).toContain("No bulk sends");
   });
 
   it("documents separate resume match and interview score fields on application tools", () => {

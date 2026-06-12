@@ -226,6 +226,14 @@ export async function addCandidateNoteHandler(input: z.infer<z.ZodObject<typeof 
   return call(auth, client, "POST", `/api/agent/v1/candidates/${input.candidateId}/notes`, { content: input.content });
 }
 
+export const sendCandidateSmsSchema = {
+  candidateId: id.describe("Candidate ID to text. The phone number always comes from the candidate record; arbitrary numbers cannot be messaged."),
+  body: z.string().min(1).max(640).describe("SMS message body, 640 characters max.")
+};
+export async function sendCandidateSmsHandler(input: z.infer<z.ZodObject<typeof sendCandidateSmsSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  return call(auth, client, "POST", `/api/agent/v1/candidates/${input.candidateId}/sms`, { body: input.body });
+}
+
 export const updateCandidateStatusSchema = {
   candidateId: id,
   status: z.enum(["NEW", "CONTACTED", "INTERVIEWING", "HIRED", "REJECTED"]).optional(),
@@ -263,6 +271,7 @@ const registrations: Registration[] = [
   { name: "unreject_application", title: "Unreject Application", description: "Unreject one application.", schema: unrejectApplicationSchema, handler: unrejectApplicationHandler },
   { name: "get_candidate", title: "Get Candidate", description: "Get one accessible candidate.", schema: getCandidateSchema, handler: getCandidateHandler },
   { name: "add_candidate_note", title: "Add Candidate Note", description: "Append one dashboard-visible candidate note.", schema: addCandidateNoteSchema, handler: addCandidateNoteHandler },
+  { name: "send_candidate_sms", title: "Send Candidate SMS", description: "Send one one-off SMS to one candidate's phone number on file. No bulk sends and no arbitrary phone numbers.", schema: sendCandidateSmsSchema, handler: sendCandidateSmsHandler },
   { name: "update_candidate_status", title: "Update Candidate Status", description: "Update candidate status and/or favorite flag.", schema: updateCandidateStatusSchema, handler: updateCandidateStatusHandler }
 ];
 
