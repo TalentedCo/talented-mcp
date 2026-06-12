@@ -3,6 +3,7 @@ import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import type { TalentedClient } from "@/lib/talented-client";
 import {
   getCandidateActivityReportHandler,
+  listApplicationsHandler,
   getInterviewReportHandler,
   getPipelineReportHandler,
   moveCandidateToStageHandler
@@ -19,6 +20,28 @@ function fakeClient() {
 const auth = { token: "tal_test" } as AuthInfo;
 
 describe("report MCP tools", () => {
+  it("forwards application stage and match-score filters to the Agent API", async () => {
+    const { client, request } = fakeClient();
+
+    await listApplicationsHandler(
+      {
+        jobId: 20,
+        stageId: 100,
+        minMatchScore: 40,
+        maxMatchScore: 90
+      },
+      auth,
+      client
+    );
+
+    expect(request).toHaveBeenCalledWith(
+      "tal_test",
+      "GET",
+      "/api/agent/v1/jobs/20/applications?stageId=100&minMatchScore=40&maxMatchScore=90",
+      undefined
+    );
+  });
+
   it("forwards interview report filters to the Agent API", async () => {
     const { client, request } = fakeClient();
 

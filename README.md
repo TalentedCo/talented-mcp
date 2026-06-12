@@ -245,6 +245,7 @@ Once connected, ask your assistant things like:
 - "List my Talented companies."
 - "What jobs are active at company 12?"
 - "Show the latest 10 applications for job 1042."
+- "List candidates in the application column for job 1042 with a resume match over 40%, then check the screening context for prior pet experience."
 - "How many interviews were completed for job 1042 from 2026-06-01 to 2026-07-01?"
 - "Show the pipeline by column for job 1042."
 - "What candidate activity happened in the phone-screen column this week?"
@@ -267,11 +268,11 @@ All tools operate within your company memberships. Read tools need the `agent:re
 | `get_job` | Get a job with active stages and interview types | read |
 | `create_or_update_job` | Create a draft job or update safe fields | write · **OWNER/ADMIN** |
 | `set_job_status` | Change a job's status (draft → active, etc.) | write · **OWNER/ADMIN** |
-| `list_applications` | List applications for a job | read |
+| `list_applications` | List applications for a job, including separate résumé match and interview score fields plus optional `stageId` / `minMatchScore` / `maxMatchScore` filters | read |
 | `get_interview_report` | Interview completion counts for a job/date range. Completed means effective call duration is at least 120 seconds. | read |
 | `get_pipeline_report` | Current stage/column counts plus stage conversion metrics for a job | read |
 | `get_candidate_activity_report` | Date-range activity counts for applications, stage entries/exits, interviews, completed interviews, and notes | read |
-| `get_application` | Get an application with candidate and current stage | read |
+| `get_application` | Get an application with candidate, current stage, separate résumé match score, interview score, and bounded AI screening context | read |
 | `create_application` | Add one candidate/application to a job | write |
 | `move_application_stage` | Move one application to a valid stage in the same job | write |
 | `move_candidate_to_stage` | Alias for moving one candidate application to one valid stage/column; still requires one `applicationId` | write |
@@ -282,6 +283,11 @@ All tools operate within your company memberships. Read tools need the `agent:re
 | `update_candidate_status` | Update a candidate's status and/or favorite flag | write |
 
 ### Reporting notes
+
+- Application list/detail responses expose résumé/application fit as `resumeMatchScorePercent` and `applicationMatchScorePercent` from `Application.aiScreeningResult.matchScore` when present.
+- Interview-derived scoring is exposed separately as `interviewScore` and `interviewScorePercent` from scored interview competency assessments. This is not the same number as the résumé match score.
+- Application responses include bounded `aiScreeningContext` highlights such as reasoning, strengths, concerns, career highlights, skill highlights, requirements matrix, and red flags. Full résumé text is not returned in list/detail responses by default.
+- Use `stageId` for Talented columns and `minMatchScore` / `maxMatchScore` to filter application/resume match percentages before inspecting candidate context.
 
 - Completed interviews are duration-based: Talented counts an interview as completed when the effective call duration is `>= 120` seconds. The Agent API uses `Interview.totalDurationSeconds` when present, then falls back to summed `InterviewSession.durationSeconds` values.
 - Report date filters use `from` as inclusive and `to` as exclusive. Date-only values such as `2026-06-01` are interpreted as UTC boundaries by the Agent API.
