@@ -62,6 +62,29 @@ describe("registered tool list", () => {
     expect(getApplication?.config.description).toContain("Does not return full resume text");
   });
 
+  it("documents compact job lists and get_job as the detailed context call", () => {
+    const registered: Array<{ name: string; config: { description?: string } }> = [];
+    const server = {
+      registerTool: (name: string, config: { description?: string }) => {
+        registered.push({ name, config });
+      }
+    };
+
+    registerTools(server as never, {} as TalentedClient);
+
+    const listJobs = registered.find((tool) => tool.name === "list_jobs");
+    const getJob = registered.find((tool) => tool.name === "get_job");
+
+    expect(listJobs?.config.description).toContain("token-optimized");
+    expect(listJobs?.config.description).toContain("bounded descriptionPreview");
+    expect(listJobs?.config.description).toContain("no full HTML job description");
+    expect(listJobs?.config.description).toContain("Call get_job before ranking candidates");
+    expect(getJob?.config.description).toContain("scoringNote");
+    expect(getJob?.config.description).toContain("autoProgressThreshold");
+    expect(getJob?.config.description).toContain("active hiring-plan competencies");
+    expect(getJob?.config.description).toContain("canonical job context call");
+  });
+
   it("accepts application match-score filters in the tool schema", () => {
     expect(listApplicationsSchema.minMatchScore.safeParse(40).success).toBe(true);
     expect(listApplicationsSchema.maxMatchScore.safeParse(90).success).toBe(true);
