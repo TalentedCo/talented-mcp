@@ -57,7 +57,7 @@ export function registerResources(server: McpServer, client: TalentedClient): vo
     new ResourceTemplate("talented://companies/{companyId}/jobs", { list: undefined }),
     {
       title: "Company Jobs",
-      description: "Jobs for one accessible company.",
+      description: "Compact jobs for one accessible company. Omits full job descriptions, question text, and competency bodies; use get_job for detailed JD/context/hiring-plan data before ranking candidates or explaining fit.",
       mimeType: "application/json"
     },
     async (_uri, variables, extra) => {

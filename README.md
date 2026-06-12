@@ -264,8 +264,8 @@ All tools operate within your company memberships. Read tools need the `agent:re
 |---|---|---|
 | `list_companies` | List companies you can access | read |
 | `get_company` | Get one company | read |
-| `list_jobs` | List a company's jobs (status/search filters) | read |
-| `get_job` | Get a job with active stages and interview types | read |
+| `list_jobs` | List compact company jobs with status/search filters, bounded `descriptionPreview`, counts, progression summary, and no full HTML JD/question/competency bodies | read |
+| `get_job` | Get the canonical job context: bounded `descriptionText`, `scoringNote`, progression threshold, stage meanings, automation flags, and active hiring-plan competencies | read |
 | `create_or_update_job` | Create a draft job or update safe fields | write · **OWNER/ADMIN** |
 | `set_job_status` | Change a job's status (draft → active, etc.) | write · **OWNER/ADMIN** |
 | `list_applications` | List applications for a job, including separate résumé match and interview score fields plus optional `stageId` / `minMatchScore` / `maxMatchScore` filters | read |
@@ -284,6 +284,9 @@ All tools operate within your company memberships. Read tools need the `agent:re
 
 ### Reporting notes
 
+- `list_jobs` responses are intentionally compact. They include enough metadata to choose a job but omit full descriptions, question text, and competency bodies. Call `get_job` before ranking candidates, explaining fit, or interpreting score ceilings.
+- `get_job` is the detailed job-context call. It includes bounded job description text, scoring note, progression mode and `autoProgressThreshold`, stage meanings, automation flags, and active hiring-plan competencies. Interview questions remain out of scope.
+- Application list/detail/create responses may include a small top-level `jobContextHint` with progression and a `recommendedNextCall` pointing to `get_job`; detailed hiring-plan context remains in `get_job`.
 - Application list/detail responses expose résumé/application fit as `resumeMatchScorePercent` and `applicationMatchScorePercent` from `Application.aiScreeningResult.matchScore` when present.
 - Interview-derived scoring is exposed separately as `interviewScore` and `interviewScorePercent` from scored interview competency assessments. This is not the same number as the résumé match score.
 - Application responses include bounded `aiScreeningContext` highlights such as reasoning, strengths, concerns, career highlights, skill highlights, requirements matrix, and red flags. Full résumé text is not returned in list/detail responses by default.
@@ -299,7 +302,7 @@ All tools operate within your company memberships. Read tools need the `agent:re
 Browseable, read‑only views for clients that support MCP resources:
 
 - `talented://companies`
-- `talented://companies/{companyId}/jobs`
+- `talented://companies/{companyId}/jobs` (compact job list; use `get_job` for detailed job context)
 - `talented://jobs/{jobId}/applications`
 - `talented://applications/{applicationId}`
 
