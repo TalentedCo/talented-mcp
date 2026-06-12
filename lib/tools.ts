@@ -109,16 +109,18 @@ export async function setJobStatusHandler(input: z.infer<z.ZodObject<typeof setJ
 }
 
 export const listApplicationsSchema = {
-  jobId: id,
+  jobId: id.describe("Job ID. Access is limited to jobs visible to the token user."),
   limit: z.number().int().min(1).max(100).optional(),
   offset: z.number().int().min(0).optional(),
   status: z.enum(["PENDING", "REVIEWING", "ACCEPTED", "REJECTED"]).optional(),
-  stageId: id.optional(),
+  stageId: id.optional().describe("Optional Talented stage/column ID, such as the application column."),
+  minMatchScore: z.number().min(0).max(100).optional().describe("Minimum resume/application match percentage from Application.aiScreeningResult.matchScore."),
+  maxMatchScore: z.number().min(0).max(100).optional().describe("Maximum resume/application match percentage from Application.aiScreeningResult.matchScore."),
   search: z.string().optional()
 };
 export async function listApplicationsHandler(input: z.infer<z.ZodObject<typeof listApplicationsSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
   const params = new URLSearchParams();
-  for (const key of ["limit", "offset", "stageId"] as const) {
+  for (const key of ["limit", "offset", "stageId", "minMatchScore", "maxMatchScore"] as const) {
     if (input[key] !== undefined) params.set(key, String(input[key]));
   }
   if (input.status) params.set("status", input.status);
@@ -162,7 +164,9 @@ export async function getCandidateActivityReportHandler(input: z.infer<z.ZodObje
   return call(auth, client, "GET", `/api/agent/v1/jobs/${input.jobId}/reports/activity${qs}`);
 }
 
-export const getApplicationSchema = { applicationId: id };
+export const getApplicationSchema = {
+  applicationId: id.describe("Application ID visible to the token user.")
+};
 export async function getApplicationHandler(input: { applicationId: number }, auth: AuthInfo | undefined, client: TalentedClient) {
   return call(auth, client, "GET", `/api/agent/v1/applications/${input.applicationId}`);
 }
@@ -247,11 +251,11 @@ const registrations: Registration[] = [
   { name: "get_job", title: "Get Job", description: "Get one accessible job with active stages and interview types.", schema: getJobSchema, handler: getJobHandler },
   { name: "create_or_update_job", title: "Create Or Update Job", description: "Create a draft job or update safe job fields. Requires company owner/admin; no billing or admin routes.", schema: createOrUpdateJobSchema, handler: createOrUpdateJobHandler },
   { name: "set_job_status", title: "Set Job Status", description: "Set one job status through the restricted non-admin status contract. Requires company owner/admin.", schema: setJobStatusSchema, handler: setJobStatusHandler },
-  { name: "list_applications", title: "List Applications", description: "List candidate applications for one accessible job.", schema: listApplicationsSchema, handler: listApplicationsHandler },
+  { name: "list_applications", title: "List Applications", description: "List candidate applications for one accessible job. Responses include resumeMatchScorePercent/applicationMatchScorePercent from AI resume screening when present, interviewScore/interviewScorePercent from scored interview competency assessments when present, and bounded aiScreeningContext highlights; filter by stageId plus minMatchScore/maxMatchScore for prompts like candidates in the application column with match over 40%.", schema: listApplicationsSchema, handler: listApplicationsHandler },
   { name: "get_interview_report", title: "Get Interview Report", description: "Report interview completion for one accessible job. Completed interviews are duration-based: effective call duration >= 120 seconds, using Interview.totalDurationSeconds before summed session durations.", schema: getInterviewReportSchema, handler: getInterviewReportHandler },
   { name: "get_pipeline_report", title: "Get Pipeline Report", description: "Report current pipeline counts and stage conversion metrics for one accessible job. Talented columns are stages; responses include stageId, columnId, names, order, and stageType.", schema: getPipelineReportSchema, handler: getPipelineReportHandler },
   { name: "get_candidate_activity_report", title: "Get Candidate Activity Report", description: "Report date-range candidate activity for one accessible job: applications created, stage entries/exits, interviews created, completed interviews, and note counts without note content.", schema: getCandidateActivityReportSchema, handler: getCandidateActivityReportHandler },
-  { name: "get_application", title: "Get Application", description: "Get one accessible application with candidate and current stage.", schema: getApplicationSchema, handler: getApplicationHandler },
+  { name: "get_application", title: "Get Application", description: "Get one accessible application with candidate, current stage, resumeMatchScorePercent/applicationMatchScorePercent, separate interviewScore/interviewScorePercent, and bounded aiScreeningContext. Does not return full resume text by default.", schema: getApplicationSchema, handler: getApplicationHandler },
   { name: "create_application", title: "Create Application", description: "Create one candidate/application in a job. No bulk creation.", schema: createApplicationSchema, handler: createApplicationHandler },
   { name: "move_application_stage", title: "Move Application Stage", description: "Move one application to a valid stage in the same job. No bulk movement.", schema: moveApplicationStageSchema, handler: moveApplicationStageHandler },
   { name: "move_candidate_to_stage", title: "Move Candidate To Stage", description: "Friendly alias for moving one candidate application to one valid Talented stage/column. Requires applicationId and does not support bulk movement.", schema: moveCandidateToStageSchema, handler: moveCandidateToStageHandler },
