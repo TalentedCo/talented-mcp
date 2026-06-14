@@ -171,6 +171,13 @@ export async function getApplicationHandler(input: { applicationId: number }, au
   return call(auth, client, "GET", `/api/agent/v1/applications/${input.applicationId}`);
 }
 
+export const getTranscriptSchema = {
+  applicationId: id.describe("Application ID visible to the token user. Returns the transcript for every interview on this application.")
+};
+export async function getTranscriptHandler(input: { applicationId: number }, auth: AuthInfo | undefined, client: TalentedClient) {
+  return call(auth, client, "GET", `/api/agent/v1/applications/${input.applicationId}/transcript`);
+}
+
 export const createApplicationSchema = {
   jobId: id,
   email: z.string().email(),
@@ -264,6 +271,7 @@ const registrations: Registration[] = [
   { name: "get_pipeline_report", title: "Get Pipeline Report", description: "Report current pipeline counts and stage conversion metrics for one accessible job. Talented columns are stages; responses include stageId, columnId, names, order, and stageType.", schema: getPipelineReportSchema, handler: getPipelineReportHandler },
   { name: "get_candidate_activity_report", title: "Get Candidate Activity Report", description: "Report date-range candidate activity for one accessible job: applications created, stage entries/exits, interviews created, completed interviews, and note counts without note content.", schema: getCandidateActivityReportSchema, handler: getCandidateActivityReportHandler },
   { name: "get_application", title: "Get Application", description: "Get one accessible application with candidate, current stage, resumeMatchScorePercent/applicationMatchScorePercent, separate interviewScore/interviewScorePercent, and bounded aiScreeningContext. Does not return full resume text by default.", schema: getApplicationSchema, handler: getApplicationHandler },
+  { name: "get_transcript", title: "Get Transcript", description: "Fetch the full interview transcript(s) for one application. This is a separate call from get_application, which never includes transcript text. Returns each interview's combined transcript (VAPI voice screens, or reconstructed from the message log for text interviews), the transcriptSource, per-session metadata (duration, ended reason, recording URL), effective duration, and completion status. Transcripts can be long, so call this only when you need the actual conversation content.", schema: getTranscriptSchema, handler: getTranscriptHandler },
   { name: "create_application", title: "Create Application", description: "Create one candidate/application in a job. No bulk creation.", schema: createApplicationSchema, handler: createApplicationHandler },
   { name: "move_application_stage", title: "Move Application Stage", description: "Move one application to a valid stage in the same job. No bulk movement.", schema: moveApplicationStageSchema, handler: moveApplicationStageHandler },
   { name: "move_candidate_to_stage", title: "Move Candidate To Stage", description: "Friendly alias for moving one candidate application to one valid Talented stage/column. Requires applicationId and does not support bulk movement.", schema: moveCandidateToStageSchema, handler: moveCandidateToStageHandler },

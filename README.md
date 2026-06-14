@@ -277,6 +277,7 @@ All tools operate within your company memberships. Read tools need the `agent:re
 | `get_pipeline_report` | Current stage/column counts plus stage conversion metrics for a job | read |
 | `get_candidate_activity_report` | Date-range activity counts for applications, stage entries/exits, interviews, completed interviews, and notes | read |
 | `get_application` | Get an application with candidate, current stage, separate résumé match score, interview score, and bounded AI screening context | read |
+| `get_transcript` | Get the full interview transcript(s) for one application (separate from `get_application`): combined transcript text, source, per-session metadata, duration, and completion status | read |
 | `create_application` | Add one candidate/application to a job | write |
 | `move_application_stage` | Move one application to a valid stage in the same job | write |
 | `move_candidate_to_stage` | Alias for moving one candidate application to one valid stage/column; still requires one `applicationId` | write |
