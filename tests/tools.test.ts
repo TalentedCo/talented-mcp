@@ -16,6 +16,7 @@ describe("registered tool list", () => {
       "get_pipeline_report",
       "get_candidate_activity_report",
       "get_application",
+      "get_transcript",
       "create_application",
       "move_application_stage",
       "move_candidate_to_stage",

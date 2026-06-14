@@ -6,7 +6,8 @@ import {
   listApplicationsHandler,
   getInterviewReportHandler,
   getPipelineReportHandler,
-  moveCandidateToStageHandler
+  moveCandidateToStageHandler,
+  getTranscriptHandler
 } from "@/lib/tools";
 
 function fakeClient() {
@@ -124,6 +125,19 @@ describe("report MCP tools", () => {
       "POST",
       "/api/agent/v1/applications/55/stage",
       { stageId: 100 }
+    );
+  });
+
+  it("fetches an application transcript by application id", async () => {
+    const { client, request } = fakeClient();
+
+    await getTranscriptHandler({ applicationId: 1778 }, auth, client);
+
+    expect(request).toHaveBeenCalledWith(
+      "tal_test",
+      "GET",
+      "/api/agent/v1/applications/1778/transcript",
+      undefined
     );
   });
 });
