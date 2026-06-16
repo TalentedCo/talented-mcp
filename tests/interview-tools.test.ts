@@ -66,50 +66,54 @@ describe("interview MCP tools", () => {
     );
   });
 
-  it("posts a cancel reason", async () => {
+  it("posts a cancel reason with the confirm email guard", async () => {
     const { client, request } = fakeClient();
 
-    await cancelInterviewHandler({ interviewId: 88, reason: "no show" }, auth, client);
+    await cancelInterviewHandler(
+      { interviewId: 88, reason: "no show", confirmEmail: "cand@example.com" },
+      auth,
+      client
+    );
 
     expect(request).toHaveBeenCalledWith(
       "tal_test",
       "POST",
       "/api/agent/v1/interviews/88/cancel",
-      { reason: "no show" }
+      { reason: "no show", confirmEmail: "cand@example.com" }
     );
   });
 
-  it("regenerates an interview with no body", async () => {
+  it("regenerates an interview with just the confirm email guard", async () => {
     const { client, request } = fakeClient();
 
-    await regenerateInterviewHandler({ interviewId: 88 }, auth, client);
+    await regenerateInterviewHandler({ interviewId: 88, confirmEmail: "cand@example.com" }, auth, client);
 
     expect(request).toHaveBeenCalledWith(
       "tal_test",
       "POST",
       "/api/agent/v1/interviews/88/regenerate",
-      undefined
+      { confirmEmail: "cand@example.com" }
     );
   });
 
-  it("resends an interview invite with no body", async () => {
+  it("resends an interview invite with just the confirm email guard", async () => {
     const { client, request } = fakeClient();
 
-    await resendInterviewInviteHandler({ interviewId: 88 }, auth, client);
+    await resendInterviewInviteHandler({ interviewId: 88, confirmEmail: "cand@example.com" }, auth, client);
 
     expect(request).toHaveBeenCalledWith(
       "tal_test",
       "POST",
       "/api/agent/v1/interviews/88/resend",
-      undefined
+      { confirmEmail: "cand@example.com" }
     );
   });
 
-  it("sends a candidate email with subject and body", async () => {
+  it("sends a candidate email with subject, body, and the confirm email guard", async () => {
     const { client, request } = fakeClient();
 
     await sendCandidateEmailHandler(
-      { candidateId: 42, subject: "Next steps", body: "Hello there" },
+      { candidateId: 42, subject: "Next steps", body: "Hello there", confirmEmail: "cand@example.com" },
       auth,
       client
     );
@@ -118,7 +122,24 @@ describe("interview MCP tools", () => {
       "tal_test",
       "POST",
       "/api/agent/v1/candidates/42/email",
-      { subject: "Next steps", body: "Hello there" }
+      { subject: "Next steps", body: "Hello there", confirmEmail: "cand@example.com" }
+    );
+  });
+
+  it("forwards confirmEmail and companyId when both are supplied to send_candidate_email", async () => {
+    const { client, request } = fakeClient();
+
+    await sendCandidateEmailHandler(
+      { candidateId: 42, subject: "Next steps", body: "Hello there", confirmEmail: "cand@example.com", companyId: 7 },
+      auth,
+      client
+    );
+
+    expect(request).toHaveBeenCalledWith(
+      "tal_test",
+      "POST",
+      "/api/agent/v1/candidates/42/email",
+      { subject: "Next steps", body: "Hello there", confirmEmail: "cand@example.com", companyId: 7 }
     );
   });
 
