@@ -7,7 +7,8 @@ import {
   getInterviewReportHandler,
   getPipelineReportHandler,
   moveCandidateToStageHandler,
-  getTranscriptHandler
+  getTranscriptHandler,
+  rejectApplicationHandler
 } from "@/lib/tools";
 
 function fakeClient() {
@@ -114,7 +115,8 @@ describe("report MCP tools", () => {
     await moveCandidateToStageHandler(
       {
         applicationId: 55,
-        stageId: 100
+        stageId: 100,
+        confirmEmail: "cand@example.com"
       },
       auth,
       client
@@ -124,7 +126,24 @@ describe("report MCP tools", () => {
       "tal_test",
       "POST",
       "/api/agent/v1/applications/55/stage",
-      { stageId: 100 }
+      { stageId: 100, confirmEmail: "cand@example.com" }
+    );
+  });
+
+  it("forwards the confirm email guard when rejecting an application", async () => {
+    const { client, request } = fakeClient();
+
+    await rejectApplicationHandler(
+      { applicationId: 55, reason: "not a fit", confirmEmail: "cand@example.com", companyId: 7 },
+      auth,
+      client
+    );
+
+    expect(request).toHaveBeenCalledWith(
+      "tal_test",
+      "POST",
+      "/api/agent/v1/applications/55/reject",
+      { reason: "not a fit", confirmEmail: "cand@example.com", companyId: 7 }
     );
   });
 

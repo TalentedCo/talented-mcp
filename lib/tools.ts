@@ -11,6 +11,20 @@ type ToolHandler<T> = (
 ) => Promise<ToolResult>;
 
 const id = z.number().int().positive();
+const confirmEmail = z
+  .string()
+  .email()
+  .describe(
+    "REQUIRED. The candidate's email on file, to confirm you're contacting the right person. The API rejects the call if it doesn't match the candidate record. ALWAYS fetch the candidate/application/interview first (get_candidate/get_application/get_interview) and pass the exact email you saw — never guess."
+  );
+const confirmCompanyId = id.optional().describe("Optional: the candidate's company id; cross-checked against the record when provided.");
+
+// Builds the recipient-assertion fields forwarded into a guarded write request body.
+function confirmBody(input: { confirmEmail: string; companyId?: number }) {
+  return { confirmEmail: input.confirmEmail, ...(input.companyId !== undefined ? { companyId: input.companyId } : {}) };
+}
+
+const SAFETY_NOTE = " Safety: you must pass confirmEmail matching the candidate on file; the send/action is rejected on mismatch.";
 const isoDateOrDateTime = z
   .string()
   .min(1)
@@ -312,27 +326,29 @@ export async function createApplicationHandler(input: z.infer<z.ZodObject<typeof
   });
 }
 
-export const moveApplicationStageSchema = { applicationId: id, stageId: id };
+export const moveApplicationStageSchema = { applicationId: id, stageId: id, confirmEmail, companyId: confirmCompanyId };
 export async function moveApplicationStageHandler(input: z.infer<z.ZodObject<typeof moveApplicationStageSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
-  return call(auth, client, "POST", `/api/agent/v1/applications/${input.applicationId}/stage`, { stageId: input.stageId });
+  return call(auth, client, "POST", `/api/agent/v1/applications/${input.applicationId}/stage`, { stageId: input.stageId, ...confirmBody(input) });
 }
 
 export const moveCandidateToStageSchema = {
   applicationId: id.describe("Application ID for the candidate/job pair to move. Required because one candidate can have multiple applications."),
-  stageId: id.describe("Destination Talented stage/column ID in the same job.")
+  stageId: id.describe("Destination Talented stage/column ID in the same job."),
+  confirmEmail,
+  companyId: confirmCompanyId
 };
 export async function moveCandidateToStageHandler(input: z.infer<z.ZodObject<typeof moveCandidateToStageSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
   return moveApplicationStageHandler(input, auth, client);
 }
 
-export const rejectApplicationSchema = { applicationId: id, reason: z.string().optional() };
+export const rejectApplicationSchema = { applicationId: id, reason: z.string().optional(), confirmEmail, companyId: confirmCompanyId };
 export async function rejectApplicationHandler(input: z.infer<z.ZodObject<typeof rejectApplicationSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
-  return call(auth, client, "POST", `/api/agent/v1/applications/${input.applicationId}/reject`, { reason: input.reason });
+  return call(auth, client, "POST", `/api/agent/v1/applications/${input.applicationId}/reject`, { reason: input.reason, ...confirmBody(input) });
 }
 
-export const unrejectApplicationSchema = { applicationId: id };
-export async function unrejectApplicationHandler(input: { applicationId: number }, auth: AuthInfo | undefined, client: TalentedClient) {
-  return call(auth, client, "POST", `/api/agent/v1/applications/${input.applicationId}/unreject`, {});
+export const unrejectApplicationSchema = { applicationId: id, confirmEmail, companyId: confirmCompanyId };
+export async function unrejectApplicationHandler(input: z.infer<z.ZodObject<typeof unrejectApplicationSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  return call(auth, client, "POST", `/api/agent/v1/applications/${input.applicationId}/unreject`, confirmBody(input));
 }
 
 export const getCandidateSchema = { candidateId: id, expand };
@@ -343,27 +359,31 @@ export async function getCandidateHandler(input: { candidateId: number; expand?:
   return call(auth, client, "GET", `/api/agent/v1/candidates/${input.candidateId}${qs ? `?${qs}` : ""}`);
 }
 
-export const addCandidateNoteSchema = { candidateId: id, content: z.string().min(1) };
+export const addCandidateNoteSchema = { candidateId: id, content: z.string().min(1), confirmEmail, companyId: confirmCompanyId };
 export async function addCandidateNoteHandler(input: z.infer<z.ZodObject<typeof addCandidateNoteSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
-  return call(auth, client, "POST", `/api/agent/v1/candidates/${input.candidateId}/notes`, { content: input.content });
+  return call(auth, client, "POST", `/api/agent/v1/candidates/${input.candidateId}/notes`, { content: input.content, ...confirmBody(input) });
 }
 
 export const sendCandidateSmsSchema = {
   candidateId: id.describe("Candidate ID to text. The phone number always comes from the candidate record; arbitrary numbers cannot be messaged."),
-  body: z.string().min(1).max(640).describe("SMS message body, 640 characters max.")
+  body: z.string().min(1).max(640).describe("SMS message body, 640 characters max."),
+  confirmEmail,
+  companyId: confirmCompanyId
 };
 export async function sendCandidateSmsHandler(input: z.infer<z.ZodObject<typeof sendCandidateSmsSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
-  return call(auth, client, "POST", `/api/agent/v1/candidates/${input.candidateId}/sms`, { body: input.body });
+  return call(auth, client, "POST", `/api/agent/v1/candidates/${input.candidateId}/sms`, { body: input.body, ...confirmBody(input) });
 }
 
 export const updateCandidateStatusSchema = {
   candidateId: id,
   status: z.enum(["NEW", "CONTACTED", "INTERVIEWING", "HIRED", "REJECTED"]).optional(),
-  isFavorite: z.boolean().optional()
+  isFavorite: z.boolean().optional(),
+  confirmEmail,
+  companyId: confirmCompanyId
 };
 export async function updateCandidateStatusHandler(input: z.infer<z.ZodObject<typeof updateCandidateStatusSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
-  const { candidateId, ...body } = input;
-  return call(auth, client, "PATCH", `/api/agent/v1/candidates/${candidateId}`, body);
+  const { candidateId, confirmEmail: _confirmEmail, companyId: _companyId, ...body } = input;
+  return call(auth, client, "PATCH", `/api/agent/v1/candidates/${candidateId}`, { ...body, ...confirmBody(input) });
 }
 
 export const listInterviewsSchema = {
@@ -408,33 +428,41 @@ export async function getInterviewHandler(input: { interviewId: number; expand?:
 
 export const cancelInterviewSchema = {
   interviewId: id.describe("Interview ID to cancel."),
-  reason: z.string().optional().describe("Optional reason recorded against the cancellation.")
+  reason: z.string().optional().describe("Optional reason recorded against the cancellation."),
+  confirmEmail,
+  companyId: confirmCompanyId
 };
 export async function cancelInterviewHandler(input: z.infer<z.ZodObject<typeof cancelInterviewSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
-  return call(auth, client, "POST", `/api/agent/v1/interviews/${input.interviewId}/cancel`, { reason: input.reason });
+  return call(auth, client, "POST", `/api/agent/v1/interviews/${input.interviewId}/cancel`, { reason: input.reason, ...confirmBody(input) });
 }
 
 export const regenerateInterviewSchema = {
-  interviewId: id.describe("Interview ID to release and regenerate.")
+  interviewId: id.describe("Interview ID to release and regenerate."),
+  confirmEmail,
+  companyId: confirmCompanyId
 };
-export async function regenerateInterviewHandler(input: { interviewId: number }, auth: AuthInfo | undefined, client: TalentedClient) {
-  return call(auth, client, "POST", `/api/agent/v1/interviews/${input.interviewId}/regenerate`);
+export async function regenerateInterviewHandler(input: z.infer<z.ZodObject<typeof regenerateInterviewSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  return call(auth, client, "POST", `/api/agent/v1/interviews/${input.interviewId}/regenerate`, confirmBody(input));
 }
 
 export const resendInterviewInviteSchema = {
-  interviewId: id.describe("Interview ID whose invite email should be re-sent.")
+  interviewId: id.describe("Interview ID whose invite email should be re-sent."),
+  confirmEmail,
+  companyId: confirmCompanyId
 };
-export async function resendInterviewInviteHandler(input: { interviewId: number }, auth: AuthInfo | undefined, client: TalentedClient) {
-  return call(auth, client, "POST", `/api/agent/v1/interviews/${input.interviewId}/resend`);
+export async function resendInterviewInviteHandler(input: z.infer<z.ZodObject<typeof resendInterviewInviteSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  return call(auth, client, "POST", `/api/agent/v1/interviews/${input.interviewId}/resend`, confirmBody(input));
 }
 
 export const sendCandidateEmailSchema = {
   candidateId: id.describe("Candidate ID to email. Mail is sent from the company identity to the candidate's address on file."),
   subject: z.string().min(1).describe("Email subject line."),
-  body: z.string().min(1).describe("Email body.")
+  body: z.string().min(1).describe("Email body."),
+  confirmEmail,
+  companyId: confirmCompanyId
 };
 export async function sendCandidateEmailHandler(input: z.infer<z.ZodObject<typeof sendCandidateEmailSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
-  return call(auth, client, "POST", `/api/agent/v1/candidates/${input.candidateId}/email`, { subject: input.subject, body: input.body });
+  return call(auth, client, "POST", `/api/agent/v1/candidates/${input.candidateId}/email`, { subject: input.subject, body: input.body, ...confirmBody(input) });
 }
 
 export const getCandidateNotesSchema = {
@@ -447,12 +475,17 @@ export async function getCandidateNotesHandler(input: { candidateId: number }, a
 export const bulkMoveApplicationsSchema = {
   jobId: id.describe("Job ID the applications belong to."),
   applicationIds: z.array(id).min(1).max(100).describe("Application IDs to move (1-100)."),
-  stageId: id.describe("Destination Talented stage/column ID in the same job.")
+  stageId: id.describe("Destination Talented stage/column ID in the same job."),
+  confirmEmails: z
+    .array(z.string().email())
+    .optional()
+    .describe("Optional: candidate emails aligned by index to applicationIds; each is verified against its application's candidate when provided.")
 };
 export async function bulkMoveApplicationsHandler(input: z.infer<z.ZodObject<typeof bulkMoveApplicationsSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
   return call(auth, client, "POST", `/api/agent/v1/jobs/${input.jobId}/applications/bulk-move`, {
     applicationIds: input.applicationIds,
-    stageId: input.stageId
+    stageId: input.stageId,
+    ...(input.confirmEmails !== undefined ? { confirmEmails: input.confirmEmails } : {})
   });
 }
 
@@ -495,20 +528,20 @@ const registrations: Registration[] = [
   { name: "get_application", title: "Get Application", description: "Get one accessible application with candidate, current stage, resumeMatchScorePercent/applicationMatchScorePercent, separate interviewScore/interviewScorePercent, and bounded aiScreeningContext. Does not return full resume text by default. Responses are compact by default; pass expand for full detail.", schema: getApplicationSchema, handler: getApplicationHandler },
   { name: "get_transcript", title: "Get Transcript", description: "Fetch the full interview transcript(s) for one application. This is a separate call from get_application, which never includes transcript text. Returns each interview's combined transcript (VAPI voice screens, or reconstructed from the message log for text interviews), the transcriptSource, per-session metadata (duration, ended reason, recording URL), effective duration, and completion status. Transcripts can be long, so call this only when you need the actual conversation content.", schema: getTranscriptSchema, handler: getTranscriptHandler },
   { name: "create_application", title: "Create Application", description: "Create one candidate/application in a job. No bulk creation.", schema: createApplicationSchema, handler: createApplicationHandler },
-  { name: "move_application_stage", title: "Move Application Stage", description: "Move one application to a valid stage in the same job. No bulk movement.", schema: moveApplicationStageSchema, handler: moveApplicationStageHandler },
-  { name: "move_candidate_to_stage", title: "Move Candidate To Stage", description: "Friendly alias for moving one candidate application to one valid Talented stage/column. Requires applicationId and does not support bulk movement.", schema: moveCandidateToStageSchema, handler: moveCandidateToStageHandler },
-  { name: "reject_application", title: "Reject Application", description: "Reject one application through the ATS service.", schema: rejectApplicationSchema, handler: rejectApplicationHandler },
-  { name: "unreject_application", title: "Unreject Application", description: "Unreject one application.", schema: unrejectApplicationSchema, handler: unrejectApplicationHandler },
+  { name: "move_application_stage", title: "Move Application Stage", description: "Move one application to a valid stage in the same job. No bulk movement." + SAFETY_NOTE, schema: moveApplicationStageSchema, handler: moveApplicationStageHandler },
+  { name: "move_candidate_to_stage", title: "Move Candidate To Stage", description: "Friendly alias for moving one candidate application to one valid Talented stage/column. Requires applicationId and does not support bulk movement." + SAFETY_NOTE, schema: moveCandidateToStageSchema, handler: moveCandidateToStageHandler },
+  { name: "reject_application", title: "Reject Application", description: "Reject one application through the ATS service." + SAFETY_NOTE, schema: rejectApplicationSchema, handler: rejectApplicationHandler },
+  { name: "unreject_application", title: "Unreject Application", description: "Unreject one application." + SAFETY_NOTE, schema: unrejectApplicationSchema, handler: unrejectApplicationHandler },
   { name: "get_candidate", title: "Get Candidate", description: "Get one accessible candidate. Responses are compact by default; pass expand for full detail.", schema: getCandidateSchema, handler: getCandidateHandler },
-  { name: "add_candidate_note", title: "Add Candidate Note", description: "Append one dashboard-visible candidate note.", schema: addCandidateNoteSchema, handler: addCandidateNoteHandler },
-  { name: "send_candidate_sms", title: "Send Candidate SMS", description: "Send one one-off SMS to one candidate's phone number on file. No bulk sends and no arbitrary phone numbers.", schema: sendCandidateSmsSchema, handler: sendCandidateSmsHandler },
-  { name: "update_candidate_status", title: "Update Candidate Status", description: "Update candidate status and/or favorite flag.", schema: updateCandidateStatusSchema, handler: updateCandidateStatusHandler },
+  { name: "add_candidate_note", title: "Add Candidate Note", description: "Append one dashboard-visible candidate note." + SAFETY_NOTE, schema: addCandidateNoteSchema, handler: addCandidateNoteHandler },
+  { name: "send_candidate_sms", title: "Send Candidate SMS", description: "Send one one-off SMS to one candidate's phone number on file. No bulk sends and no arbitrary phone numbers." + SAFETY_NOTE, schema: sendCandidateSmsSchema, handler: sendCandidateSmsHandler },
+  { name: "update_candidate_status", title: "Update Candidate Status", description: "Update candidate status and/or favorite flag." + SAFETY_NOTE, schema: updateCandidateStatusSchema, handler: updateCandidateStatusHandler },
   { name: "list_interviews", title: "List Interviews", description: "List interviews for a job with health (status, technicalFailure, endedReason), candidate link, and score; filter failedOnly=true to find interviews that crashed on a pipeline error. Responses are compact by default; pass expand for full detail.", schema: listInterviewsSchema, handler: listInterviewsHandler },
   { name: "get_interview", title: "Get Interview", description: "One interview with link, endedReason, technicalFailure, and (when expanded) per-competency scorecard + per-session breakdown. Responses are compact by default; pass expand for full detail.", schema: getInterviewSchema, handler: getInterviewHandler },
-  { name: "cancel_interview", title: "Cancel Interview", description: "Cancels/abandons an interview. Requires the agent:write scope.", schema: cancelInterviewSchema, handler: cancelInterviewHandler },
-  { name: "regenerate_interview", title: "Regenerate Interview", description: "Releases a started-but-failed or stale interview and mints a fresh interview + link on the same stage. Use when a candidate's interview crashed (custom-llm-400) and you need a new link. Requires the agent:write scope.", schema: regenerateInterviewSchema, handler: regenerateInterviewHandler },
-  { name: "resend_interview_invite", title: "Resend Interview Invite", description: "Re-sends the interview invite email. Requires the agent:write scope.", schema: resendInterviewInviteSchema, handler: resendInterviewInviteHandler },
-  { name: "send_candidate_email", title: "Send Candidate Email", description: "Sends a free-form email (subject+body) to one candidate from the company identity. Requires the agent:write scope.", schema: sendCandidateEmailSchema, handler: sendCandidateEmailHandler },
+  { name: "cancel_interview", title: "Cancel Interview", description: "Cancels/abandons an interview. Requires the agent:write scope." + SAFETY_NOTE, schema: cancelInterviewSchema, handler: cancelInterviewHandler },
+  { name: "regenerate_interview", title: "Regenerate Interview", description: "Releases a started-but-failed or stale interview and mints a fresh interview + link on the same stage. Use when a candidate's interview crashed (custom-llm-400) and you need a new link. Requires the agent:write scope." + SAFETY_NOTE, schema: regenerateInterviewSchema, handler: regenerateInterviewHandler },
+  { name: "resend_interview_invite", title: "Resend Interview Invite", description: "Re-sends the interview invite email. Requires the agent:write scope." + SAFETY_NOTE, schema: resendInterviewInviteSchema, handler: resendInterviewInviteHandler },
+  { name: "send_candidate_email", title: "Send Candidate Email", description: "Sends a free-form email (subject+body) to one candidate from the company identity. Requires the agent:write scope." + SAFETY_NOTE, schema: sendCandidateEmailSchema, handler: sendCandidateEmailHandler },
   { name: "get_candidate_notes", title: "Get Candidate Notes", description: "Reads dashboard-visible candidate notes (the read side of add_candidate_note).", schema: getCandidateNotesSchema, handler: getCandidateNotesHandler },
   { name: "bulk_move_applications", title: "Bulk Move Applications", description: "Moves multiple applications to one stage in a single call. Requires the agent:write scope.", schema: bulkMoveApplicationsSchema, handler: bulkMoveApplicationsHandler },
   { name: "get_reliability_report", title: "Get Reliability Report", description: "Interview reliability over time — pipeline-error/technical-failure rate vs clean completions, to catch infra regressions.", schema: getReliabilityReportSchema, handler: getReliabilityReportHandler }
