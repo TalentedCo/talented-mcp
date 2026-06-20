@@ -10,7 +10,6 @@ import {
   sendCandidateEmailHandler,
   getCandidateNotesHandler,
   bulkMoveApplicationsHandler,
-  getReliabilityReportHandler,
   listApplicationsHandler,
   getInterviewReportHandler
 } from "@/lib/tools";
@@ -35,7 +34,6 @@ describe("interview MCP tools", () => {
         stageId: 100,
         interviewTypeId: 700,
         status: "failed",
-        failedOnly: true,
         from: "2026-06-01",
         to: "2026-07-01",
         limit: 25,
@@ -48,7 +46,7 @@ describe("interview MCP tools", () => {
     expect(request).toHaveBeenCalledWith(
       "tal_test",
       "GET",
-      "/api/agent/v1/jobs/20/interviews?stageId=100&interviewTypeId=700&limit=25&offset=5&status=failed&failedOnly=true&from=2026-06-01&to=2026-07-01",
+      "/api/agent/v1/jobs/20/interviews?stageId=100&interviewTypeId=700&limit=25&offset=5&status=failed&from=2026-06-01&to=2026-07-01",
       undefined
     );
   });
@@ -160,7 +158,12 @@ describe("interview MCP tools", () => {
     const { client, request } = fakeClient();
 
     await bulkMoveApplicationsHandler(
-      { jobId: 20, applicationIds: [1, 2, 3], stageId: 100 },
+      {
+        jobId: 20,
+        applicationIds: [1, 2, 3],
+        stageId: 100,
+        confirmEmails: ["a@x.com", "b@x.com", "c@x.com"],
+      },
       auth,
       client
     );
@@ -169,26 +172,14 @@ describe("interview MCP tools", () => {
       "tal_test",
       "POST",
       "/api/agent/v1/jobs/20/applications/bulk-move",
-      { applicationIds: [1, 2, 3], stageId: 100 }
+      {
+        applicationIds: [1, 2, 3],
+        stageId: 100,
+        confirmEmails: ["a@x.com", "b@x.com", "c@x.com"],
+      }
     );
   });
 
-  it("forwards reliability report filters", async () => {
-    const { client, request } = fakeClient();
-
-    await getReliabilityReportHandler(
-      { jobId: 20, from: "2026-06-01", to: "2026-07-01", interval: "week" },
-      auth,
-      client
-    );
-
-    expect(request).toHaveBeenCalledWith(
-      "tal_test",
-      "GET",
-      "/api/agent/v1/jobs/20/reports/reliability?from=2026-06-01&to=2026-07-01&interval=week",
-      undefined
-    );
-  });
 });
 
 describe("expand param forwarding", () => {

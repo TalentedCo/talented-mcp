@@ -52,8 +52,7 @@ describe("registered tool list", () => {
       "resend_interview_invite",
       "send_candidate_email",
       "get_candidate_notes",
-      "bulk_move_applications",
-      "get_reliability_report"
+      "bulk_move_applications"
     ]);
   });
 
