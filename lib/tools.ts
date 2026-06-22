@@ -394,7 +394,6 @@ export const listInterviewsSchema = {
     .enum(["not_started", "in_progress", "completed", "failed", "cancelled"])
     .optional()
     .describe("Filter by interview status."),
-  failedOnly: z.boolean().optional().describe("Only return interviews that crashed on a pipeline/technical error."),
   from: isoDateOrDateTime.optional().describe("Inclusive lower bound for the interview window."),
   to: isoDateOrDateTime.optional().describe("Exclusive upper bound for the interview window."),
   limit: z.number().int().min(1).max(100).optional(),
@@ -407,7 +406,6 @@ export async function listInterviewsHandler(input: z.infer<z.ZodObject<typeof li
     if (input[key] !== undefined) params.set(key, String(input[key]));
   }
   if (input.status) params.set("status", input.status);
-  if (input.failedOnly !== undefined) params.set("failedOnly", String(input.failedOnly));
   if (input.from) params.set("from", input.from);
   if (input.to) params.set("to", input.to);
   if (input.expand) params.set("expand", input.expand);
@@ -478,30 +476,14 @@ export const bulkMoveApplicationsSchema = {
   stageId: id.describe("Destination Talented stage/column ID in the same job."),
   confirmEmails: z
     .array(z.string().email())
-    .optional()
-    .describe("Optional: candidate emails aligned by index to applicationIds; each is verified against its application's candidate when provided.")
+    .describe("REQUIRED. One candidate email per applicationId, in the SAME ORDER, each verified against its application's candidate on file. Fetch the applications first and pass the emails you saw — a mismatch skips that item.")
 };
 export async function bulkMoveApplicationsHandler(input: z.infer<z.ZodObject<typeof bulkMoveApplicationsSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
   return call(auth, client, "POST", `/api/agent/v1/jobs/${input.jobId}/applications/bulk-move`, {
     applicationIds: input.applicationIds,
     stageId: input.stageId,
-    ...(input.confirmEmails !== undefined ? { confirmEmails: input.confirmEmails } : {})
+    confirmEmails: input.confirmEmails
   });
-}
-
-export const getReliabilityReportSchema = {
-  jobId: id.describe("Job ID to report on. Access is limited to jobs visible to the token user."),
-  from: isoDateOrDateTime.optional().describe("Inclusive lower bound for the reliability window."),
-  to: isoDateOrDateTime.optional().describe("Exclusive upper bound for the reliability window."),
-  interval: z.enum(["day", "week"]).optional().describe("Bucket interval for the reliability series.")
-};
-export async function getReliabilityReportHandler(input: z.infer<z.ZodObject<typeof getReliabilityReportSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
-  const params = new URLSearchParams();
-  if (input.from) params.set("from", input.from);
-  if (input.to) params.set("to", input.to);
-  if (input.interval) params.set("interval", input.interval);
-  const qs = params.toString();
-  return call(auth, client, "GET", `/api/agent/v1/jobs/${input.jobId}/reports/reliability${qs ? `?${qs}` : ""}`);
 }
 
 type Registration = {
@@ -536,15 +518,14 @@ const registrations: Registration[] = [
   { name: "add_candidate_note", title: "Add Candidate Note", description: "Append one dashboard-visible candidate note." + SAFETY_NOTE, schema: addCandidateNoteSchema, handler: addCandidateNoteHandler },
   { name: "send_candidate_sms", title: "Send Candidate SMS", description: "Send one one-off SMS to one candidate's phone number on file. No bulk sends and no arbitrary phone numbers." + SAFETY_NOTE, schema: sendCandidateSmsSchema, handler: sendCandidateSmsHandler },
   { name: "update_candidate_status", title: "Update Candidate Status", description: "Update candidate status and/or favorite flag." + SAFETY_NOTE, schema: updateCandidateStatusSchema, handler: updateCandidateStatusHandler },
-  { name: "list_interviews", title: "List Interviews", description: "List interviews for a job with health (status, technicalFailure, endedReason), candidate link, and score; filter failedOnly=true to find interviews that crashed on a pipeline error. Responses are compact by default; pass expand for full detail.", schema: listInterviewsSchema, handler: listInterviewsHandler },
-  { name: "get_interview", title: "Get Interview", description: "One interview with link, endedReason, technicalFailure, and (when expanded) per-competency scorecard + per-session breakdown. Responses are compact by default; pass expand for full detail.", schema: getInterviewSchema, handler: getInterviewHandler },
+  { name: "list_interviews", title: "List Interviews", description: "List interviews for a job with health (status, endedReason), candidate link, and score. Responses are compact by default; pass expand for full detail.", schema: listInterviewsSchema, handler: listInterviewsHandler },
+  { name: "get_interview", title: "Get Interview", description: "One interview with link, status, endedReason, and (when expanded) per-competency scorecard + per-session breakdown. Responses are compact by default; pass expand for full detail.", schema: getInterviewSchema, handler: getInterviewHandler },
   { name: "cancel_interview", title: "Cancel Interview", description: "Cancels/abandons an interview. Requires the agent:write scope." + SAFETY_NOTE, schema: cancelInterviewSchema, handler: cancelInterviewHandler },
-  { name: "regenerate_interview", title: "Regenerate Interview", description: "Releases a started-but-failed or stale interview and mints a fresh interview + link on the same stage. Use when a candidate's interview crashed (custom-llm-400) and you need a new link. Requires the agent:write scope." + SAFETY_NOTE, schema: regenerateInterviewSchema, handler: regenerateInterviewHandler },
+  { name: "regenerate_interview", title: "Regenerate Interview", description: "Releases a started-but-failed or stale interview and mints a fresh interview + link on the same stage. Use when a candidate's interview was interrupted and you need a new link. Requires the agent:write scope." + SAFETY_NOTE, schema: regenerateInterviewSchema, handler: regenerateInterviewHandler },
   { name: "resend_interview_invite", title: "Resend Interview Invite", description: "Re-sends the interview invite email. Requires the agent:write scope." + SAFETY_NOTE, schema: resendInterviewInviteSchema, handler: resendInterviewInviteHandler },
   { name: "send_candidate_email", title: "Send Candidate Email", description: "Sends a free-form email (subject+body) to one candidate from the company identity. Requires the agent:write scope." + SAFETY_NOTE, schema: sendCandidateEmailSchema, handler: sendCandidateEmailHandler },
   { name: "get_candidate_notes", title: "Get Candidate Notes", description: "Reads dashboard-visible candidate notes (the read side of add_candidate_note).", schema: getCandidateNotesSchema, handler: getCandidateNotesHandler },
-  { name: "bulk_move_applications", title: "Bulk Move Applications", description: "Moves multiple applications to one stage in a single call. Requires the agent:write scope.", schema: bulkMoveApplicationsSchema, handler: bulkMoveApplicationsHandler },
-  { name: "get_reliability_report", title: "Get Reliability Report", description: "Interview reliability over time — pipeline-error/technical-failure rate vs clean completions, to catch infra regressions.", schema: getReliabilityReportSchema, handler: getReliabilityReportHandler }
+  { name: "bulk_move_applications", title: "Bulk Move Applications", description: "Moves multiple applications to one stage in a single call. Requires the agent:write scope. Safety: confirmEmails is required — one candidate email per applicationId in the same order; any item whose email doesn't match its candidate is skipped.", schema: bulkMoveApplicationsSchema, handler: bulkMoveApplicationsHandler }
 ];
 
 export function registerTools(server: McpServer, client: TalentedClient): void {
