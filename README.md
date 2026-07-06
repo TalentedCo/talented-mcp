@@ -268,6 +268,7 @@ All tools operate within your company memberships. Read tools need the `agent:re
 |---|---|---|
 | `list_companies` | List companies you can access | read |
 | `get_company` | Get one company | read |
+| `invite_company_member` | Invite or add an `ADMIN`/`MEMBER` to an existing company; never creates companies | write · **OWNER/ADMIN** |
 | `list_jobs` | List compact company jobs with status/search filters, bounded `descriptionPreview`, counts, progression summary, and no full HTML JD/question/competency bodies | read |
 | `get_job` | Get the canonical job context: bounded `descriptionText`, `scoringNote`, progression threshold, stage meanings, automation flags, and active hiring-plan competencies | read |
 | `create_or_update_job` | Create a draft job or update safe fields | write · **OWNER/ADMIN** |
@@ -316,7 +317,8 @@ Browseable, read‑only views for clients that support MCP resources:
 ## Permissions & security
 
 - **Scoped to you.** Every request resolves your key to your user and enforces current company membership for the target company, job, application, or candidate.
-- **Role‑aware.** Material job writes (`create_or_update_job`, `set_job_status`) require company **OWNER** or **ADMIN**; pipeline actions mirror the normal ATS dashboard and act one item at a time.
+- **Role‑aware.** Existing-company member invites (`invite_company_member`) and material job writes (`create_or_update_job`, `set_job_status`) require company **OWNER** or **ADMIN**; pipeline actions mirror the normal ATS dashboard and act one item at a time.
+- **No company-creation fallback.** `invite_company_member` only targets an existing company the token user can administer. If access is denied or the company is hidden, do not create a replacement company.
 - **Intentionally limited.** No super‑admin, impersonation, billing/Stripe, feature flags, raw database/SQL, migrations, eval/debug, or bulk‑destructive operations are exposed.
 - **Key hygiene.** Manual keys and OAuth-issued tokens are stored only as hashes. Manual keys are shown once at creation, can be given an expiry, and can be revoked anytime at [talented.co/pro/account](https://talented.co/pro/account). OAuth-issued tokens last about 90 days and remain revocable.
 

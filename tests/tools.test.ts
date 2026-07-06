@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import {
+  inviteCompanyMemberHandler,
+  inviteCompanyMemberSchema,
   registerTools,
   listApplicationsSchema,
   createCompanySchema,
@@ -24,6 +27,7 @@ describe("registered tool list", () => {
     expect(toolNames).toEqual([
       "list_companies",
       "get_company",
+      "invite_company_member",
       "create_company",
       "list_jobs",
       "get_job",
@@ -126,6 +130,13 @@ describe("registered tool list", () => {
     expect(createCompany?.config.description).toContain("email invitation");
   });
 
+  it("documents existing-company invites as owner/admin writes that never create companies", () => {
+    const inviteCompanyMember = registerAndCollect().find((tool) => tool.name === "invite_company_member");
+    expect(inviteCompanyMember?.config.description).toContain("already-existing company");
+    expect(inviteCompanyMember?.config.description).toContain("Never creates companies");
+    expect(inviteCompanyMember?.config.description).toContain("OWNER/ADMIN");
+  });
+
   it("documents that create_job defaults to draft and warns before publishing", () => {
     const createJob = registerAndCollect().find((tool) => tool.name === "create_job");
     expect(createJob?.config.description).toContain("create-job wizard");
@@ -146,5 +157,39 @@ describe("registered tool list", () => {
     expect(createJobSchema.autoProgressThreshold.safeParse(101).success).toBe(false);
     expect(createJobSchema.inviteMode.safeParse("AI_SCREEN").success).toBe(true);
     expect(createJobSchema.inviteMode.safeParse("NONSENSE").success).toBe(false);
+  });
+
+  it("validates existing-company invite schema roles", () => {
+    expect(inviteCompanyMemberSchema.companyId.safeParse(74).success).toBe(true);
+    expect(inviteCompanyMemberSchema.email.safeParse("tanya@woofiesrh.com").success).toBe(true);
+    expect(inviteCompanyMemberSchema.role.safeParse("ADMIN").success).toBe(true);
+    expect(inviteCompanyMemberSchema.role.safeParse("MEMBER").success).toBe(true);
+    expect(inviteCompanyMemberSchema.role.safeParse("OWNER").success).toBe(false);
+  });
+
+  it("forwards existing-company invites to the Agent API without company creation", async () => {
+    const request = async () => ({ success: true, status: "invitation_sent" });
+    const calls: unknown[][] = [];
+    const client = {
+      request: (...args: unknown[]) => {
+        calls.push(args);
+        return request();
+      }
+    } as unknown as TalentedClient;
+
+    await inviteCompanyMemberHandler(
+      { companyId: 74, email: "tanya@woofiesrh.com", role: "ADMIN" },
+      { token: "tal_test" } as AuthInfo,
+      client
+    );
+
+    expect(calls).toEqual([
+      [
+        "tal_test",
+        "POST",
+        "/api/agent/v1/companies/74/members/invite",
+        { email: "tanya@woofiesrh.com", role: "ADMIN" }
+      ]
+    ]);
   });
 });
