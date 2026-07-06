@@ -132,6 +132,7 @@ describe("MCP route auth", () => {
     };
     const names = (body.result?.tools ?? []).map((tool) => tool.name);
     expect(names).toContain("list_companies");
+    expect(names).toContain("invite_company_member");
     expect(names).toContain("get_job");
     expect(names).toContain("get_interview_report");
     expect(names).toContain("move_candidate_to_stage");
