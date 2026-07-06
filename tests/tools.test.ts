@@ -3,9 +3,12 @@ import {
   registerTools,
   listApplicationsSchema,
   createCompanySchema,
+  inviteCompanyMemberHandler,
+  inviteCompanyMemberSchema,
   createJobSchema,
   toolNames
 } from "@/lib/tools";
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import type { TalentedClient } from "@/lib/talented-client";
 
 function registerAndCollect() {
@@ -25,6 +28,7 @@ describe("registered tool list", () => {
       "list_companies",
       "get_company",
       "create_company",
+      "invite_company_member",
       "list_jobs",
       "get_job",
       "create_or_update_job",
@@ -126,6 +130,13 @@ describe("registered tool list", () => {
     expect(createCompany?.config.description).toContain("email invitation");
   });
 
+  it("documents that invite_company_member only targets existing companies", () => {
+    const tool = registerAndCollect().find((registered) => registered.name === "invite_company_member");
+    expect(tool?.config.description).toContain("existing company");
+    expect(tool?.config.description).toContain("never creates companies");
+    expect(tool?.config.description).toContain("OWNER/ADMIN");
+  });
+
   it("documents that create_job defaults to draft and warns before publishing", () => {
     const createJob = registerAndCollect().find((tool) => tool.name === "create_job");
     expect(createJob?.config.description).toContain("create-job wizard");
@@ -141,10 +152,45 @@ describe("registered tool list", () => {
     expect(invites.safeParse([{ email: "a@b.com", role: "ADMIN" }]).success).toBe(true);
     expect(invites.safeParse([{ email: "a@b.com", role: "OWNER" }]).success).toBe(false);
     expect(invites.safeParse([{ email: "not-an-email" }]).success).toBe(false);
+    expect(inviteCompanyMemberSchema.role.safeParse("ADMIN").success).toBe(true);
+    expect(inviteCompanyMemberSchema.role.safeParse("MEMBER").success).toBe(true);
+    expect(inviteCompanyMemberSchema.role.safeParse("OWNER").success).toBe(false);
+    expect(inviteCompanyMemberSchema.email.safeParse("not-an-email").success).toBe(false);
 
     expect(createJobSchema.autoProgressThreshold.safeParse(70).success).toBe(true);
     expect(createJobSchema.autoProgressThreshold.safeParse(101).success).toBe(false);
     expect(createJobSchema.inviteMode.safeParse("AI_SCREEN").success).toBe(true);
     expect(createJobSchema.inviteMode.safeParse("NONSENSE").success).toBe(false);
+  });
+
+  it("forwards invite_company_member calls to the existing-company invite endpoint", async () => {
+    const client = {
+      request: async (token: string, method: string, path: string, body: unknown) => {
+        expect(token).toBe("tal_token");
+        expect(method).toBe("POST");
+        expect(path).toBe("/api/agent/v1/companies/74/members/invite");
+        expect(body).toEqual({ email: "tanya@woofiesrh.com", role: "ADMIN" });
+        return {
+          companyId: 74,
+          email: "tanya@woofiesrh.com",
+          role: "ADMIN",
+          status: "invited"
+        };
+      }
+    } as TalentedClient;
+
+    const result = await inviteCompanyMemberHandler(
+      { companyId: 74, email: "tanya@woofiesrh.com", role: "ADMIN" },
+      { token: "tal_token" } as AuthInfo,
+      client
+    );
+
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0].text)).toEqual({
+      companyId: 74,
+      email: "tanya@woofiesrh.com",
+      role: "ADMIN",
+      status: "invited"
+    });
   });
 });

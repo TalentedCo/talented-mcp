@@ -268,6 +268,7 @@ All tools operate within your company memberships. Read tools need the `agent:re
 |---|---|---|
 | `list_companies` | List companies you can access | read |
 | `get_company` | Get one company | read |
+| `invite_company_member` | Invite or add an `ADMIN`/`MEMBER` to an existing company; never creates companies or falls back to company creation | write · **OWNER/ADMIN** |
 | `list_jobs` | List compact company jobs with status/search filters, bounded `descriptionPreview`, counts, progression summary, and no full HTML JD/question/competency bodies | read |
 | `get_job` | Get the canonical job context: bounded `descriptionText`, `scoringNote`, progression threshold, stage meanings, automation flags, and active hiring-plan competencies | read |
 | `create_or_update_job` | Create a draft job or update safe fields | write · **OWNER/ADMIN** |

@@ -108,6 +108,20 @@ export async function createCompanyHandler(input: z.infer<z.ZodObject<typeof cre
   return call(auth, client, "POST", "/api/agent/v1/companies", input);
 }
 
+export const inviteCompanyMemberSchema = {
+  companyId: id.describe("Existing company ID visible to the token user. This tool never creates companies."),
+  email: z.string().email().describe("Email address to invite or add to the existing company."),
+  role: z
+    .enum(["ADMIN", "MEMBER"])
+    .describe("Role to assign. OWNER is not supported through this tool.")
+};
+export async function inviteCompanyMemberHandler(input: z.infer<z.ZodObject<typeof inviteCompanyMemberSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  return call(auth, client, "POST", `/api/agent/v1/companies/${input.companyId}/members/invite`, {
+    email: input.email,
+    role: input.role
+  });
+}
+
 export const listJobsSchema = {
   companyId: id.describe("Company ID."),
   status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED", "ARCHIVED"]).optional(),
@@ -498,6 +512,7 @@ const registrations: Registration[] = [
   { name: "list_companies", title: "List Companies", description: "List companies the token user can access. Does not expose super-admin company data.", schema: listCompaniesSchema, handler: listCompaniesHandler },
   { name: "get_company", title: "Get Company", description: "Get one accessible company by ID.", schema: getCompanySchema, handler: getCompanyHandler },
   { name: "create_company", title: "Create Company", description: "Create a new company owned by you (the token user) and optionally invite teammates by email. You automatically become the company OWNER. Only the name is required; description, website, logo, location, industry, size, and timezone are optional. Each invited teammate receives an email invitation they must accept (existing Talented users included) — nobody is silently added. Requires the agent:write scope.", schema: createCompanySchema, handler: createCompanyHandler },
+  { name: "invite_company_member", title: "Invite Company Member", description: "Invite or add an ADMIN/MEMBER to an existing company. This tool never creates companies and never falls back to create_company when a company is not visible. Requires agent:write plus company OWNER/ADMIN permissions.", schema: inviteCompanyMemberSchema, handler: inviteCompanyMemberHandler },
   { name: "list_jobs", title: "List Jobs", description: "List compact jobs in one accessible company, with safe filters. Responses are token-optimized: bounded descriptionPreview, counts, progression/hiring-plan summary, and no full HTML job description, question text, or competency bodies. Call get_job before ranking candidates or explaining fit. Responses are compact by default; pass expand for full detail.", schema: listJobsSchema, handler: listJobsHandler },
   { name: "get_job", title: "Get Job", description: "Get one accessible job with bounded descriptionText, scoringNote, progression mode/autoProgressThreshold, stage meanings, automation flags, and active hiring-plan competencies. This is the canonical job context call before candidate ranking, fit explanation, or score interpretation. Responses are compact by default; pass expand for full detail.", schema: getJobSchema, handler: getJobHandler },
   { name: "create_or_update_job", title: "Create Or Update Job", description: "Update safe fields on an existing job, or quickly create a bare draft job. For a full wizard-style new job posting (competency generation, pre-screen setup, optional publish), prefer create_job. Requires company owner/admin; no billing or admin routes.", schema: createOrUpdateJobSchema, handler: createOrUpdateJobHandler },
