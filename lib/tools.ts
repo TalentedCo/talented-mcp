@@ -80,6 +80,12 @@ export async function getCompanyHandler(input: { companyId: number }, auth: Auth
   return call(auth, client, "GET", `/api/agent/v1/companies/${input.companyId}`);
 }
 
+const nullableCompanyProfileString = z
+  .string()
+  .nullable()
+  .optional()
+  .describe("Optional profile text. Pass null or an empty string to clear this field; omit to preserve the existing value.");
+
 export const createCompanySchema = {
   name: z.string().min(1).describe("Company name (required). A unique URL slug is generated from it."),
   description: z.string().optional().describe("Short company description / about blurb."),
@@ -106,6 +112,25 @@ export const createCompanySchema = {
 };
 export async function createCompanyHandler(input: z.infer<z.ZodObject<typeof createCompanySchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
   return call(auth, client, "POST", "/api/agent/v1/companies", input);
+}
+
+export const updateCompanyProfileSchema = {
+  companyId: id.describe("Existing company ID visible to the token user. The tool never creates companies."),
+  description: nullableCompanyProfileString.describe("Short company description / about blurb. Pass null or an empty string to clear; omit to preserve."),
+  website: nullableCompanyProfileString.describe("Company website. A bare domain is auto-prefixed with https:// by the API. Pass null or an empty string to clear; omit to preserve."),
+  logoUrl: nullableCompanyProfileString.describe("Absolute URL to the company logo image. Pass null or an empty string to clear; omit to preserve."),
+  location: nullableCompanyProfileString.describe("Primary location, e.g. 'San Francisco, CA'. Pass null or an empty string to clear; omit to preserve."),
+  industry: nullableCompanyProfileString.describe("Industry, e.g. 'Technology' or 'Pets'. Pass null or an empty string to clear; omit to preserve."),
+  size: nullableCompanyProfileString.describe("Headcount band, e.g. '1-10', '11-50', '51-200', '1000+'. Pass null or an empty string to clear; omit to preserve."),
+  timezone: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Valid IANA timezone, e.g. 'America/New_York'. Omit to preserve; null and blank values are rejected because company timezone is required.")
+};
+export async function updateCompanyProfileHandler(input: z.infer<z.ZodObject<typeof updateCompanyProfileSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  const { companyId, ...body } = input;
+  return call(auth, client, "PATCH", `/api/agent/v1/companies/${companyId}`, body);
 }
 
 export const inviteCompanyMemberSchema = {
@@ -512,6 +537,7 @@ const registrations: Registration[] = [
   { name: "list_companies", title: "List Companies", description: "List companies the token user can access. Does not expose super-admin company data.", schema: listCompaniesSchema, handler: listCompaniesHandler },
   { name: "get_company", title: "Get Company", description: "Get one accessible company by ID.", schema: getCompanySchema, handler: getCompanyHandler },
   { name: "create_company", title: "Create Company", description: "Create a new company owned by you (the token user) and optionally invite teammates by email. You automatically become the company OWNER. Only the name is required; description, website, logo, location, industry, size, and timezone are optional. Each invited teammate receives an email invitation they must accept (existing Talented users included) — nobody is silently added. Requires the agent:write scope.", schema: createCompanySchema, handler: createCompanyHandler },
+  { name: "update_company_profile", title: "Update Company Profile", description: "Update safe profile fields on an existing company only: description, website, logoUrl, location, industry, size, and timezone. Omitted fields are preserved; nullable fields can be cleared with null or an empty string; timezone must be a valid nonblank IANA value. Requires agent:write plus company OWNER/ADMIN permissions. Never creates companies and never exposes raw/admin company mutation.", schema: updateCompanyProfileSchema, handler: updateCompanyProfileHandler },
   { name: "invite_company_member", title: "Invite Company Member", description: "Invite or add an ADMIN/MEMBER to an existing company. This tool never creates companies and never falls back to create_company when a company is not visible. Requires agent:write plus company OWNER/ADMIN permissions.", schema: inviteCompanyMemberSchema, handler: inviteCompanyMemberHandler },
   { name: "list_jobs", title: "List Jobs", description: "List compact jobs in one accessible company, with safe filters. Responses are token-optimized: bounded descriptionPreview, counts, progression/hiring-plan summary, and no full HTML job description, question text, or competency bodies. Call get_job before ranking candidates or explaining fit. Responses are compact by default; pass expand for full detail.", schema: listJobsSchema, handler: listJobsHandler },
   { name: "get_job", title: "Get Job", description: "Get one accessible job with bounded descriptionText, scoringNote, progression mode/autoProgressThreshold, stage meanings, automation flags, and active hiring-plan competencies. This is the canonical job context call before candidate ranking, fit explanation, or score interpretation. Responses are compact by default; pass expand for full detail.", schema: getJobSchema, handler: getJobHandler },

@@ -3,6 +3,8 @@ import {
   registerTools,
   listApplicationsSchema,
   createCompanySchema,
+  updateCompanyProfileHandler,
+  updateCompanyProfileSchema,
   inviteCompanyMemberHandler,
   inviteCompanyMemberSchema,
   createJobSchema,
@@ -28,6 +30,7 @@ describe("registered tool list", () => {
       "list_companies",
       "get_company",
       "create_company",
+      "update_company_profile",
       "invite_company_member",
       "list_jobs",
       "get_job",
@@ -137,6 +140,15 @@ describe("registered tool list", () => {
     expect(tool?.config.description).toContain("OWNER/ADMIN");
   });
 
+  it("documents that update_company_profile is a narrow owner/admin write", () => {
+    const tool = registerAndCollect().find((registered) => registered.name === "update_company_profile");
+    expect(tool?.config.description).toContain("safe profile fields");
+    expect(tool?.config.description).toContain("agent:write");
+    expect(tool?.config.description).toContain("OWNER/ADMIN");
+    expect(tool?.config.description).toContain("Never creates companies");
+    expect(tool?.config.description).toContain("raw/admin company mutation");
+  });
+
   it("documents that create_job defaults to draft and warns before publishing", () => {
     const createJob = registerAndCollect().find((tool) => tool.name === "create_job");
     expect(createJob?.config.description).toContain("create-job wizard");
@@ -152,6 +164,10 @@ describe("registered tool list", () => {
     expect(invites.safeParse([{ email: "a@b.com", role: "ADMIN" }]).success).toBe(true);
     expect(invites.safeParse([{ email: "a@b.com", role: "OWNER" }]).success).toBe(false);
     expect(invites.safeParse([{ email: "not-an-email" }]).success).toBe(false);
+    expect(updateCompanyProfileSchema.description.safeParse(null).success).toBe(true);
+    expect(updateCompanyProfileSchema.logoUrl.safeParse("").success).toBe(true);
+    expect(updateCompanyProfileSchema.timezone.safeParse("America/New_York").success).toBe(true);
+    expect(updateCompanyProfileSchema.timezone.safeParse(null).success).toBe(false);
     expect(inviteCompanyMemberSchema.role.safeParse("ADMIN").success).toBe(true);
     expect(inviteCompanyMemberSchema.role.safeParse("MEMBER").success).toBe(true);
     expect(inviteCompanyMemberSchema.role.safeParse("OWNER").success).toBe(false);
@@ -191,6 +207,58 @@ describe("registered tool list", () => {
       email: "tanya@woofiesrh.com",
       role: "ADMIN",
       status: "invited"
+    });
+  });
+
+  it("forwards update_company_profile calls to the safe company profile PATCH endpoint", async () => {
+    const client = {
+      request: async (token: string, method: string, path: string, body: unknown) => {
+        expect(token).toBe("tal_token");
+        expect(method).toBe("PATCH");
+        expect(path).toBe("/api/agent/v1/companies/73");
+        expect(body).toEqual({
+          description: "Woofies profile",
+          logoUrl: "https://www.woofies.com/images/brand/logo-dark.png",
+          location: "Hubert, NC",
+          industry: "Pets",
+          timezone: "America/New_York"
+        });
+        return {
+          company: {
+            id: 73,
+            description: "Woofies profile",
+            logoUrl: "https://www.woofies.com/images/brand/logo-dark.png",
+            location: "Hubert, NC",
+            industry: "Pets",
+            timezone: "America/New_York"
+          }
+        };
+      }
+    } as TalentedClient;
+
+    const result = await updateCompanyProfileHandler(
+      {
+        companyId: 73,
+        description: "Woofies profile",
+        logoUrl: "https://www.woofies.com/images/brand/logo-dark.png",
+        location: "Hubert, NC",
+        industry: "Pets",
+        timezone: "America/New_York"
+      },
+      { token: "tal_token" } as AuthInfo,
+      client
+    );
+
+    expect(result.isError).toBeUndefined();
+    expect(JSON.parse(result.content[0].text)).toEqual({
+      company: {
+        id: 73,
+        description: "Woofies profile",
+        logoUrl: "https://www.woofies.com/images/brand/logo-dark.png",
+        location: "Hubert, NC",
+        industry: "Pets",
+        timezone: "America/New_York"
+      }
     });
   });
 });
