@@ -108,6 +108,30 @@ export async function createCompanyHandler(input: z.infer<z.ZodObject<typeof cre
   return call(auth, client, "POST", "/api/agent/v1/companies", input);
 }
 
+const nullableProfileField = z
+  .string()
+  .nullable()
+  .optional()
+  .describe("String value to set; pass null or an empty string to clear this nullable profile field.");
+
+export const updateCompanyProfileSchema = {
+  companyId: id.describe("Existing company ID visible to the token user. The tool never creates companies."),
+  description: nullableProfileField.describe("Short company description / about blurb. Null or empty string clears it."),
+  website: nullableProfileField.describe("Company website. A bare domain like 'acme.com' is auto-prefixed with https://; null or empty string clears it."),
+  logoUrl: nullableProfileField.describe("Absolute URL to the company logo image. Null or empty string clears it."),
+  location: nullableProfileField.describe("Primary location, e.g. 'San Francisco, CA'. Null or empty string clears it."),
+  industry: nullableProfileField.describe("Industry, e.g. 'Technology', 'Healthcare'. Null or empty string clears it."),
+  size: nullableProfileField.describe("Headcount band, e.g. '1-10', '11-50', '51-200', '1000+'. Null or empty string clears it."),
+  timezone: z
+    .string()
+    .optional()
+    .describe("IANA timezone, e.g. 'America/New_York'. Omit to preserve the current timezone; null/blank/invalid values are rejected by the API.")
+};
+export async function updateCompanyProfileHandler(input: z.infer<z.ZodObject<typeof updateCompanyProfileSchema>>, auth: AuthInfo | undefined, client: TalentedClient) {
+  const { companyId, ...body } = input;
+  return call(auth, client, "PATCH", `/api/agent/v1/companies/${companyId}`, body);
+}
+
 export const inviteCompanyMemberSchema = {
   companyId: id.describe("Existing company ID visible to the token user. This tool never creates companies."),
   email: z.string().email().describe("Email address to invite or add to the existing company."),
@@ -512,6 +536,7 @@ const registrations: Registration[] = [
   { name: "list_companies", title: "List Companies", description: "List companies the token user can access. Does not expose super-admin company data.", schema: listCompaniesSchema, handler: listCompaniesHandler },
   { name: "get_company", title: "Get Company", description: "Get one accessible company by ID.", schema: getCompanySchema, handler: getCompanyHandler },
   { name: "create_company", title: "Create Company", description: "Create a new company owned by you (the token user) and optionally invite teammates by email. You automatically become the company OWNER. Only the name is required; description, website, logo, location, industry, size, and timezone are optional. Each invited teammate receives an email invitation they must accept (existing Talented users included) — nobody is silently added. Requires the agent:write scope.", schema: createCompanySchema, handler: createCompanyHandler },
+  { name: "update_company_profile", title: "Update Company Profile", description: "Update safe profile fields on an existing company only: description, website, logoUrl, location, industry, size, and timezone. Omitted fields are preserved; null or empty string clears nullable fields, while timezone must be a valid non-blank IANA name. Requires agent:write plus company OWNER/ADMIN permissions and never creates companies or exposes raw company mutation.", schema: updateCompanyProfileSchema, handler: updateCompanyProfileHandler },
   { name: "invite_company_member", title: "Invite Company Member", description: "Invite or add an ADMIN/MEMBER to an existing company. This tool never creates companies and never falls back to create_company when a company is not visible. Requires agent:write plus company OWNER/ADMIN permissions.", schema: inviteCompanyMemberSchema, handler: inviteCompanyMemberHandler },
   { name: "list_jobs", title: "List Jobs", description: "List compact jobs in one accessible company, with safe filters. Responses are token-optimized: bounded descriptionPreview, counts, progression/hiring-plan summary, and no full HTML job description, question text, or competency bodies. Call get_job before ranking candidates or explaining fit. Responses are compact by default; pass expand for full detail.", schema: listJobsSchema, handler: listJobsHandler },
   { name: "get_job", title: "Get Job", description: "Get one accessible job with bounded descriptionText, scoringNote, progression mode/autoProgressThreshold, stage meanings, automation flags, and active hiring-plan competencies. This is the canonical job context call before candidate ranking, fit explanation, or score interpretation. Responses are compact by default; pass expand for full detail.", schema: getJobSchema, handler: getJobHandler },

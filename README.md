@@ -247,6 +247,7 @@ For headless bearer setup:
 Once connected, ask your assistant things like:
 
 - "List my Talented companies."
+- "Update company 73's profile with this description, logo URL, location, industry, and timezone."
 - "What jobs are active at company 12?"
 - "Show the latest 10 applications for job 1042."
 - "List candidates in the application column for job 1042 with a resume match over 40%, then check the screening context for prior pet experience."
@@ -268,6 +269,7 @@ All tools operate within your company memberships. Read tools need the `agent:re
 |---|---|---|
 | `list_companies` | List companies you can access | read |
 | `get_company` | Get one company | read |
+| `update_company_profile` | Update safe profile fields on an existing company: `description`, `website`, `logoUrl`, `location`, `industry`, `size`, `timezone`. Omitted fields are preserved; null or empty string clears nullable fields; timezone must be a valid IANA name. Never creates companies or exposes raw company mutation. | write · **OWNER/ADMIN** |
 | `invite_company_member` | Invite or add an `ADMIN`/`MEMBER` to an existing company; never creates companies or falls back to company creation | write · **OWNER/ADMIN** |
 | `list_jobs` | List compact company jobs with status/search filters, bounded `descriptionPreview`, counts, progression summary, and no full HTML JD/question/competency bodies | read |
 | `get_job` | Get the canonical job context: bounded `descriptionText`, `scoringNote`, progression threshold, stage meanings, automation flags, and active hiring-plan competencies | read |
@@ -318,6 +320,7 @@ Browseable, read‑only views for clients that support MCP resources:
 
 - **Scoped to you.** Every request resolves your key to your user and enforces current company membership for the target company, job, application, or candidate.
 - **Role‑aware.** Material job writes (`create_or_update_job`, `set_job_status`) require company **OWNER** or **ADMIN**; pipeline actions mirror the normal ATS dashboard and act one item at a time.
+- **Profile updates are narrow.** `update_company_profile` only updates safe existing-company profile fields (`description`, `website`, `logoUrl`, `location`, `industry`, `size`, `timezone`) and requires **OWNER** or **ADMIN** access. It is not raw company CRUD and never creates companies.
 - **Intentionally limited.** No super‑admin, impersonation, billing/Stripe, feature flags, raw database/SQL, migrations, eval/debug, or bulk‑destructive operations are exposed.
 - **Key hygiene.** Manual keys and OAuth-issued tokens are stored only as hashes. Manual keys are shown once at creation, can be given an expiry, and can be revoked anytime at [talented.co/pro/account](https://talented.co/pro/account). OAuth-issued tokens last about 90 days and remain revocable.
 
